@@ -1,0 +1,91 @@
+{% extends 'inventory_app/base.html' %}
+
+{% block title %}Categories - Inventory Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Kategoriyalar</h1>
+        <a href="{% url 'category_add' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> Kategoriya Qo'shish
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Barcha kategoriya</h5>
+        </div>
+        <div class="card-body">
+            {% if categories %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Nomi</th>
+                            <th>Maxsulot soni</th>
+                            <th>Harakat</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for category in categories %}
+                        <tr>
+                            <td>
+                                <strong>{{ category.name }}</strong>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ category.product_count }} products</span>
+                            </td>
+                            <td>
+                                <a href="{% url 'category_edit' category.id %}" class="btn btn-sm btn-outline-primary me-2">
+                                    <i class="fas fa-edit"></i> Edit
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        data-bs-toggle="modal" data-bs-target="#deleteModal{{ category.id }}">
+                                    <i class="fas fa-trash"></i> O'chirish
+                                </button>
+                            </td>
+                        </tr>
+
+                        <!-- Delete Modal for each category -->
+                        <div class="modal fade" id="deleteModal{{ category.id }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">O'chirishni tasdiqlash</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        Are you sure you want to delete "{{ category.name }}"?
+                                        {% if category.product_count > 0 %}
+                                        <div class="alert alert-warning mt-2">
+                                            <strong>Ogohlantirish:</strong> Ushbu turkumda {{ category.product_count }} ta mahsulot mavjud. 
+                                            Avval ushbu mahsulotlarni qayta tayinlashingiz yoki oʻchirishingiz kerak.
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                                        {% if category.product_count == 0 %}
+                                        <a href="{% url 'category_delete' category.id %}" class="btn btn-danger">O'chirish</a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                <p class="text-muted">No categories found.</p>
+                <a href="{% url 'category_add' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i> Add First Category
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,631 @@
+{% extends 'inventory_app/base.html' %}
+
+{% block title %}QR Scanner - Inventory Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .scanner-container {
+        position: relative;
+        width: 100%;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    #scanner-video {
+        width: 100%;
+        border: 3px solid #3498db;
+        border-radius: 10px;
+    }
+    
+    .scanner-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        box-sizing: border-box;
+        pointer-events: none;
+    }
+    
+    .scanner-line {
+        position: absolute;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: #3498db;
+        animation: scan 2s infinite;
+    }
+    
+    @keyframes scan {
+        0% { top: 0; }
+        50% { top: 100%; }
+        100% { top: 0; }
+    }
+    
+    .scanner-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+        justify-content: center;
+    }
+    
+    .scanner-status {
+        text-align: center;
+        margin: 15px 0;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+    }
+    
+    .scanner-result {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 10px;
+        background-color: #fff;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .product-card {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 15px;
+        border-radius: 10px;
+        background-color: #f8f9fa;
+        margin-bottom: 15px;
+    }
+    
+    .product-image {
+        width: 80px;
+        height: 80px;
+        border-radius: 8px;
+        object-fit: cover;
+    }
+    
+    .product-info {
+        flex: 1;
+    }
+    
+    .product-name {
+        font-weight: bold;
+        font-size: 1.2em;
+        margin-bottom: 5px;
+    }
+    
+    .product-price {
+        font-weight: bold;
+        color: #3498db;
+    }
+    
+    .product-stock {
+        font-size: 0.9em;
+        color: #6c757d;
+    }
+    
+    .product-actions {
+        display: flex;
+        gap: 15px;
+        margin-top: 15px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .quantity-input, .price-input {
+        max-width: 150px;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .quantity-input .input-group-text, .price-input .input-group-text {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        font-weight: 500;
+        padding: 10px 15px;
+    }
+    
+    .quantity-input input, .price-input input {
+        border: 1px solid #ddd;
+        padding: 10px;
+        font-size: 1em;
+        text-align: center;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .quantity-input input:focus, .price-input input:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+        outline: none;
+    }
+    
+    .price-input .input-group-text:last-child {
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .usb-scanner-section {
+        margin-top: 30px;
+        padding: 20px;
+        border-radius: 10px;
+        background-color: #f8f9fa;
+    }
+    
+    .usb-scanner-input {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        font-size: 16px;
+    }
+    
+    .tab-buttons {
+        display: flex;
+        margin-bottom: 20px;
+    }
+    
+    .tab-button {
+        flex: 1;
+        padding: 15px;
+        text-align: center;
+        background-color: #f8f9fa;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.3s;
+    }
+    
+    .tab-button.active {
+        background-color: #3498db;
+        color: white;
+    }
+    
+    .tab-button:first-child {
+        border-top-left-radius: 10px;
+        border-bottom-left-radius: 10px;
+    }
+    
+    .tab-button:last-child {
+        border-top-right-radius: 10px;
+        border-bottom-right-radius: 10px;
+    }
+    
+    .tab-content {
+        display: none;
+    }
+    
+    .tab-content.active {
+        display: block;
+    }
+    
+    .price-error {
+        color: #dc3545;
+        font-size: 0.8em;
+        margin-top: 5px;
+        display: none;
+    }
+    
+    @media (max-width: 768px) {
+        .scanner-container {
+            max-width: 100%;
+        }
+        
+        .product-actions {
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .quantity-input, .price-input {
+            max-width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-qrcode"></i> QR Scanner</h1>
+        <a href="{% url 'cart_view' %}" class="btn btn-primary">
+            <i class="fas fa-shopping-cart"></i> Savatga o'tish
+            <span class="badge bg-light text-dark ms-1" id="cart-count">{{ cart_count }}</span>
+        </a>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> Mahsulotlarni savatga qo'shish uchun QR kodlarni skanerlang
+    </div>
+
+    <div class="tab-buttons">
+        <button class="tab-button active" data-tab="camera-tab">
+            <i class="fas fa-camera"></i> Kamera orqali
+        </button>
+        <button class="tab-button" data-tab="usb-tab">
+            <i class="fas fa-usb"></i> USB skaner orqali
+        </button>
+    </div>
+
+    <div id="camera-tab" class="tab-content active">
+        <div class="scanner-container">
+            <video id="scanner-video" autoplay playsinline></video>
+            <div class="scanner-overlay">
+                <div class="scanner-line"></div>
+            </div>
+        </div>
+        
+        <div class="scanner-buttons">
+            <button id="start-scanner" class="btn btn-primary">
+                <i class="fas fa-play"></i> Skanerni boshlash
+            </button>
+            <button id="stop-scanner" class="btn btn-secondary" disabled>
+                <i class="fas fa-stop"></i> To'xtatish
+            </button>
+        </div>
+        
+        <div class="scanner-status" id="scanner-status">
+            Skanerni boshlash uchun yuqoridagi tugmani bosing
+        </div>
+    </div>
+
+    <div id="usb-tab" class="tab-content">
+        <div class="usb-scanner-section">
+            <h3><i class="fas fa-usb"></i> USB Skaner (N-2050 I/F)</h3>
+            <p>USB skaner ulangan bo'lsa, quyidagi maydonni faollashtiring va QR kodni skanerlang:</p>
+            
+            <div class="form-group">
+                <label for="usb-scanner-input">QR kod natijasi:</label>
+                <input type="text" id="usb-scanner-input" class="usb-scanner-input" 
+                       placeholder="USB skaner natijasi bu yerda ko'rsatiladi..." autofocus>
+            </div>
+            
+            <div class="alert alert-warning mt-3">
+                <i class="fas fa-exclamation-triangle"></i> 
+                USB skaner to'g'ri ishlashi uchun ushbu sahifani ochiq qoldiring va kursorni yuqoridagi maydondan boshqa joyga o'tkazmang.
+            </div>
+        </div>
+    </div>
+
+    <div class="scanner-result" id="scanner-result" style="display: none;">
+        <h3><i class="fas fa-check-circle text-success"></i> Mahsulot topildi</h3>
+        
+        <div id="product-details"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // CSRF token olish
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+
+    // Tab o'zgartirish
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const tabId = button.dataset.tab;
+            
+            // Barcha tab buttonlardan active klassini olib tashlash
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            
+            // Barcha tab contentlardan active klassini olib tashlash
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Tanlangan tab va contentga active klassini qo'shish
+            button.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+            
+            // Agar kamera tabi tanlangan bo'lsa va skaner ishlayotgan bo'lsa, to'xtatish
+            if (tabId !== 'camera-tab' && codeReader && codeReader.isScanning) {
+                stopScanner();
+            }
+            
+            // USB skaner inputiga focus qilish
+            if (tabId === 'usb-tab') {
+                document.getElementById('usb-scanner-input').focus();
+            }
+        });
+    });
+
+    // Kamera orqali QR kod skanerlash
+    let codeReader = null;
+    let selectedDeviceId = null;
+    
+    const startScannerButton = document.getElementById('start-scanner');
+    const stopScannerButton = document.getElementById('stop-scanner');
+    const scannerStatus = document.getElementById('scanner-status');
+    const scannerResult = document.getElementById('scanner-result');
+    const productDetails = document.getElementById('product-details');
+    
+    function initScanner() {
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        
+        codeReader.listVideoInputDevices()
+            .then((videoInputDevices) => {
+                if (videoInputDevices.length <= 0) {
+                    scannerStatus.innerHTML = '<span class="text-danger">Kamera topilmadi!</span>';
+                    return;
+                }
+                
+                // Orqa kamerani tanlash (ko'pincha mobil qurilmalarda)
+                selectedDeviceId = videoInputDevices[0].deviceId;
+                for (const device of videoInputDevices) {
+                    if (device.label.toLowerCase().includes('back') || 
+                        device.label.toLowerCase().includes('orqa') || 
+                        device.label.toLowerCase().includes('rear')) {
+                        selectedDeviceId = device.deviceId;
+                        break;
+                    }
+                }
+                
+                startScannerButton.disabled = false;
+                scannerStatus.textContent = 'Kamera tayyor. Skanerlashni boshlash uchun tugmani bosing.';
+            })
+            .catch((err) => {
+                scannerStatus.innerHTML = `<span class="text-danger">Kamerani ishga tushirishda xatolik: ${err}</span>`;
+            });
+    }
+    
+    function startScanner() {
+        if (!codeReader) {
+            initScanner();
+            return;
+        }
+        
+        codeReader.decodeFromVideoDevice(selectedDeviceId, 'scanner-video', (result, err) => {
+            if (result) {
+                // QR kod natijasini olish
+                const qrCodeValue = result.getText();
+                processQRCode(qrCodeValue);
+                
+                // Skanerdan to'xtatish (faqat bir marta skanerlash uchun)
+                stopScanner();
+            }
+            
+            if (err && !(err instanceof ZXing.NotFoundException)) {
+                scannerStatus.innerHTML = `<span class="text-danger">Skanerlashda xatolik: ${err}</span>`;
+                stopScanner();
+            }
+        });
+        
+        startScannerButton.disabled = true;
+        stopScannerButton.disabled = false;
+        scannerStatus.textContent = 'Skanerlash jarayoni... QR kodni kameraga ko\'rsating';
+    }
+    
+    function stopScanner() {
+        if (codeReader && codeReader.isScanning) {
+            codeReader.reset();
+            startScannerButton.disabled = false;
+            stopScannerButton.disabled = true;
+            scannerStatus.textContent = 'Skaner to\'xtatildi. Qayta boshlash uchun tugmani bosing.';
+        }
+    }
+    
+    startScannerButton.addEventListener('click', startScanner);
+    stopScannerButton.addEventListener('click', stopScanner);
+    
+    // USB skaner orqali QR kod skanerlash
+    const usbScannerInput = document.getElementById('usb-scanner-input');
+    
+    usbScannerInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const qrCodeValue = this.value.trim();
+            if (qrCodeValue) {
+                processQRCode(qrCodeValue);
+                this.value = '';
+            }
+        }
+    });
+    
+    // QR kod natijasini qayta ishlash
+    function processQRCode(qrCodeValue) {
+        scannerStatus.innerHTML = `<span class="text-info">QR kod o'qildi: ${qrCodeValue}</span>`;
+        
+        // QR kod formatini aniqlash va ID ni olish
+        let productId = null;
+        
+        // URL formatidagi QR kodlarni tekshirish
+        if (qrCodeValue.includes('/products/')) {
+            const urlParts = qrCodeValue.split('/');
+            for (let i = 0; i < urlParts.length; i++) {
+                if (urlParts[i] === 'products' && i + 1 < urlParts.length) {
+                    productId = urlParts[i + 1].replace(/\D/g, ''); // Faqat raqamlarni olish
+                    break;
+                }
+            }
+        } else {
+            // Agar oddiy raqam bo'lsa
+            productId = qrCodeValue.replace(/\D/g, '');
+        }
+        
+        if (!productId) {
+            scannerStatus.innerHTML = '<span class="text-danger">Noto\'g\'ri QR kod formati!</span>';
+            return;
+        }
+        
+        // Mahsulot ma'lumotlarini olish
+        fetchProductDetails(productId);
+    }
+    
+    // Mahsulot ma'lumotlarini olish
+    function fetchProductDetails(productId) {
+        scannerStatus.innerHTML = '<span class="text-info">Mahsulot ma\'lumotlari yuklanmoqda...</span>';
+        
+        fetch(`/api/products/${productId}/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Mahsulot topilmadi');
+                }
+                return response.json();
+            })
+            .then(product => {
+                displayProductDetails(product);
+            })
+            .catch(error => {
+                scannerStatus.innerHTML = `<span class="text-danger">Xatolik: ${error.message}</span>`;
+                scannerResult.style.display = 'none';
+            });
+    }
+    
+    // Narxni tekshirish funksiyasi
+    function validatePrice(price, minPrice) {
+        const priceError = document.getElementById('price-error');
+        if (parseFloat(price) <= parseFloat(minPrice)) {
+            priceError.textContent = "Bu narxda sotolmaysiz! Yuqoriroq narx kiriting.";
+            priceError.style.display = 'block';
+            return false;
+        } else {
+            priceError.style.display = 'none';
+            return true;
+        }
+    }
+    
+    // Mahsulot ma'lumotlarini ko'rsatish
+    function displayProductDetails(product) {
+        scannerResult.style.display = 'block';
+        
+        const imageUrl = product.image_url || '/static/inventory_app/img/no-image.png';
+        
+        productDetails.innerHTML = `
+            <div class="product-card">
+                <img src="${imageUrl}" alt="${product.name}" class="product-image">
+                <div class="product-info">
+                    <div class="product-name">${product.name}</div>
+                    <div class="product-price">${product.sale_price} so'm (tavsiya etilgan narx)</div>
+                    <div class="product-stock">Zaxira: ${product.stock} ${product.unit_type === 'piece' ? 'dona' : 'kg'}</div>
+                    
+                    <div class="product-actions">
+                        <div class="input-group quantity-input">
+                            <span class="input-group-text">Soni</span>
+                            <input type="number" id="product-quantity" class="form-control" value="1" min="1" max="${product.stock}">
+                        </div>
+                        
+                        <div class="input-group">
+                            <span class="input-group-text">Narx</span>
+                            <input type="number" id="product-price" class="form-control" value="${product.sale_price}" min="0" step="500">
+                            <span class="input-group-text">so'm</span>
+                        </div>
+                    </div>
+                    <div class="price-error" id="price-error"></div>
+                </div>
+            </div>
+            
+            <button id="add-to-cart" class="btn btn-success btn-lg w-100" data-product-id="${product.id}" data-min-price="${product.min_sale_price}">
+                <i class="fas fa-cart-plus"></i> Savatga qo'shish
+            </button>
+        `;
+        
+        // Narx validatsiyasi uchun event listener
+        const priceInput = document.getElementById('product-price');
+        const minPrice = product.min_sale_price;
+        
+        priceInput.addEventListener('input', function() {
+            validatePrice(this.value, minPrice);
+        });
+        
+        // Savatga qo'shish tugmasiga hodisa qo'shish
+        document.getElementById('add-to-cart').addEventListener('click', function() {
+            const productId = this.dataset.productId;
+            const minPrice = this.dataset.minPrice;
+            const quantity = parseFloat(document.getElementById('product-quantity').value);
+            const soldPrice = parseFloat(document.getElementById('product-price').value);
+            
+            // Narxni tekshirish
+            if (!validatePrice(soldPrice, minPrice)) {
+                return;
+            }
+            
+            addToCart(productId, quantity, soldPrice);
+        });
+        
+        // USB skaner inputiga qayta focus qilish
+        if (document.querySelector('.tab-button[data-tab="usb-tab"]').classList.contains('active')) {
+            setTimeout(() => {
+                document.getElementById('usb-scanner-input').focus();
+            }, 100);
+        }
+    }
+    
+    // Savatga qo'shish
+    function addToCart(productId, quantity, soldPrice) {
+        if (!productId || quantity <= 0 || soldPrice <= 0) {
+            scannerStatus.innerHTML = '<span class="text-danger">Noto\'g\'ri ma\'lumotlar!</span>';
+            return;
+        }
+        
+        fetch('/api/cart/add/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                product_id: productId,
+                quantity: quantity,
+                sold_price: soldPrice
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                scannerStatus.innerHTML = '<span class="text-success">Mahsulot savatga qo\'shildi!</span>';
+                scannerResult.style.display = 'none';
+                
+                // Savat sonini yangilash
+                const cartCountBadge = document.getElementById('cart-count');
+                if (cartCountBadge) {
+                    cartCountBadge.textContent = data.cart_count;
+                }
+                
+                // USB skaner inputiga qayta focus qilish
+                if (document.querySelector('.tab-button[data-tab="usb-tab"]').classList.contains('active')) {
+                    document.getElementById('usb-scanner-input').focus();
+                } else {
+                    // Kamera skanerini qayta boshlash
+                    startScanner();
+                }
+            } else {
+                scannerStatus.innerHTML = `<span class="text-danger">Xatolik: ${data.error}</span>`;
+            }
+        })
+        .catch(error => {
+            scannerStatus.innerHTML = `<span class="text-danger">Server xatosi: ${error.message}</span>`;
+        });
+    }
+    
+    // Sahifa yuklanganda kamera skanerini ishga tushirish
+    initScanner();
+    
+    // USB skaner inputiga focus qilish
+    document.getElementById('usb-tab').addEventListener('click', function() {
+        document.getElementById('usb-scanner-input').focus();
+    });
+    
+    // Sahifa fokusdan chiqqanda va qayta fokusga qaytganda USB inputga focus qilish
+    window.addEventListener('focus', function() {
+        if (document.querySelector('.tab-button[data-tab="usb-tab"]').classList.contains('active')) {
+            document.getElementById('usb-scanner-input').focus();
+        }
+    });
+});
+</script>
+{% endblock %}

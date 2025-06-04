@@ -1,0 +1,103 @@
+{% extends 'inventory_app/base.html' %}
+
+{% block title %}Transactions - Inventory Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Transaksiya tarixi</h1>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Barcha Transaksiyalar</h5>
+        </div>
+        <div class="card-body">
+            {% if page_obj %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Sana</th>
+                            <th>Maxsulot</th>
+                            <th>Tur</th>
+                            <th>Soni</th>
+                            <th>User</th>
+                            <th>Eslatma</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transaction in page_obj %}
+                        <tr>
+                            <td>{{ transaction.timestamp|date:"M d, Y H:i" }}</td>
+                            <td>
+                                <a href="{% url 'product_detail' transaction.product.id %}" class="text-decoration-none">
+                                    {{ transaction.product.name }}
+                                </a>
+                            </td>
+                            <td>
+                                {% if transaction.transaction_type == 'IN' %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-arrow-up me-1"></i> Stock In
+                                </span>
+                                {% else %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-arrow-down me-1"></i> Stock Out
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>{{ transaction.quantity }}</td>
+                            <td>{{ transaction.user.username }}</td>
+                            <td>{{ transaction.notes|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+            <nav aria-label="Transaction pagination">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">First</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-exchange-alt fa-3x text-muted mb-3"></i>
+                <p class="text-muted">No transactions found.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

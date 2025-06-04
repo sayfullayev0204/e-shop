@@ -1,0 +1,42 @@
+{% extends 'inventory_app/base.html' %}
+
+{% block sarlavha %}Kategoriyani O‘chirish - Ombor Boshqaruvi Tizimi{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i> O‘chirishni Tasdiqlash
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-4">Quyidagi kategoriyani o‘chirishni xohlaysizmi?</p>
+                    
+                    <div class="alert alert-warning">
+                        <strong>{{ category.name }}</strong>
+                    </div>
+                    
+                    <p class="text-danger">
+                        <strong>Ogohlantirish:</strong> Bu amal qaytarib bo‘lmaydi.
+                    </p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-end">
+                            <a href="{% url 'category_list' %}" class="btn btn-secondary me-2">
+                                <i class="fas fa-times me-2"></i> Bekor Qilish
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash me-2"></i> Kategoriyani O‘chirish
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

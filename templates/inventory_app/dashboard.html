@@ -1,0 +1,295 @@
+{% extends 'inventory_app/base.html' %}
+
+{% block title %}Dashboard - Inventory Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">Dashboard</h1>
+    
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted mb-0">Barcha Maxsulotlar</h6>
+                            <h2 class="mt-2 mb-0">{{ total_products }}</h2>
+                        </div>
+                        <div class="bg-light rounded p-3">
+                            <i class="fas fa-box fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted mb-0">Jami zaxira qiymati</h6>
+                            <h2 class="mt-2 mb-0">{{ total_stock_value|floatformat:2 }} so'm</h2>
+                        </div>
+                        <div class="bg-light rounded p-3">
+                            <i class="fas fa-dollar-sign fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted mb-0">Bugungi sotuvlar</h6>
+                            <h2 class="mt-2 mb-0">{{ today_sales.total|default:0 }}</h2>
+                            <small class="text-muted">{{ today_sales.count|default:0 }} operatsiyalar</small>
+                        </div>
+                        <div class="bg-light rounded p-3">
+                            <i class="fas fa-shopping-cart fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted mb-0">Haftalik sotuvlar</h6>
+                            <h2 class="mt-2 mb-0">{{ week_sales.total|default:0 }}</h2>
+                            <small class="text-muted">{{ week_sales.count|default:0 }} operatsiyalar</small>
+                        </div>
+                        <div class="bg-light rounded p-3">
+                            <i class="fas fa-chart-line fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Tezkor harakatlar</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'product_add' %}" class="btn btn-primary w-100">
+                                <i class="fas fa-plus me-2"></i> Mahsulot qo'shish
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'category_add' %}" class="btn btn-success w-100">
+                                <i class="fas fa-folder-plus me-2"></i> Kategoriya qo'shish
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'qr_scanner' %}" class="btn btn-info w-100 text-white">
+                                <i class="fas fa-qrcode me-2"></i> Scan QR Code
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'product_list' %}" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-list me-2"></i> Barcha mahsulotlarni ko'rish
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content Row -->
+    <div class="row">
+        <!-- Recent Transactions -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Oxirgi operatsiyalar</h5>
+                    <a href="{% url 'transaction_list' %}" class="btn btn-sm btn-outline-primary">Hammasini ko‘rish</a>
+                </div>
+                <div class="card-body">
+                    {% if recent_transactions %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Maxsulot</th>
+                                    <th>Turi</th>
+                                    <th>Soni</th>
+                                    <th>Sanasi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in recent_transactions %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'product_detail' transaction.product.id %}" class="text-decoration-none">
+                                            {{ transaction.product.name|truncatechars:20 }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        {% if transaction.transaction_type == 'IN' %}
+                                        <span class="badge bg-success">In</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Out</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ transaction.quantity }}</td>
+                                    <td>{{ transaction.timestamp|date:"M d, H:i" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-exchange-alt fa-2x text-muted mb-2"></i>
+                        <p class="text-muted">Hozircha transactions yo'q</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Low Stock Products -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Kam zaxira haqida ogohlantirish</h5>
+                    <span class="badge bg-warning">{{ low_stock_products|length }} items</span>
+                </div>
+                <div class="card-body">
+                    {% if low_stock_products %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Maxsulot</th>
+                                    <th>Kategorya</th>
+                                    <th>Birja</th>
+                                    <th>Harakat</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in low_stock_products %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'product_detail' product.id %}" class="text-decoration-none">
+                                            {{ product.name|truncatechars:15 }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ product.category.name }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="low-stock">{{ product.stock }}</span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'stock_add' product.id %}" class="btn btn-sm btn-success">
+                                            <i class="fas fa-plus"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                        <p class="text-muted">Barcha mahsulotlar yaxshi saqlangan</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Sales Trend Chart
+    const salesCtx = document.getElementById('salesChart').getContext('2d');
+    const salesChart = new Chart(salesCtx, {
+        type: 'line',
+        data: {
+            labels: ['6 days ago', '5 days ago', '4 days ago', '3 days ago', '2 days ago', 'Yesterday', 'Today'],
+            datasets: [{
+                label: 'Sales',
+                data: [12, 19, 8, 15, 22, 18, {{ today_sales.total|default:0 }}],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Units Sold'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // Category Distribution Chart
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    const categoryChart = new Chart(categoryCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Electronics', 'Clothing', 'Books', 'Food', 'Others'],
+            datasets: [{
+                data: [30, 25, 20, 15, 10],
+                backgroundColor: [
+                    '#FF6384',
+                    '#36A2EB',
+                    '#FFCE56',
+                    '#4BC0C0',
+                    '#9966FF'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Auto-refresh dashboard every 5 minutes
+    setInterval(function() {
+        location.reload();
+    }, 300000);
+</script>
+{% endblock %}

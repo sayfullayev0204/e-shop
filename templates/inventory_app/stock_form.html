@@ -1,0 +1,72 @@
+{% extends 'inventory_app/base.html' %}
+
+{% block title %}{{ title }} - Inventory Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ title }}</h1>
+        <a href="{% url 'product_detail' product.id %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i> Back to Product
+        </a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        {% if action == 'add' %}
+                        <i class="fas fa-plus text-success me-2"></i> Add Stock
+                        {% else %}
+                        <i class="fas fa-minus text-danger me-2"></i> Remove Stock
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Product Info -->
+                    <div class="alert alert-info">
+                        <strong>{{ product.name }}</strong><br>
+                        <small>Current Stock: {{ product.stock }} units</small>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.quantity.id_for_label }}" class="form-label">
+                                Quantity {% if action == 'remove' %}to Remove{% else %}to Add{% endif %} *
+                            </label>
+                            {{ form.quantity }}
+                            {% if form.quantity.errors %}
+                            <div class="text-danger">{{ form.quantity.errors.0 }}</div>
+                            {% endif %}
+                            {% if action == 'remove' %}
+                            <div class="form-text">Maximum: {{ product.stock }} units</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.notes.id_for_label }}" class="form-label">Notes</label>
+                            {{ form.notes }}
+                            {% if form.notes.errors %}
+                            <div class="text-danger">{{ form.notes.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-end">
+                            <a href="{% url 'product_detail' product.id %}" class="btn btn-secondary me-2">
+                                <i class="fas fa-times me-2"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn {% if action == 'add' %}btn-success{% else %}btn-danger{% endif %}">
+                                <i class="fas fa-{% if action == 'add' %}plus{% else %}minus{% endif %} me-2"></i>
+                                {% if action == 'add' %}Add Stock{% else %}Remove Stock{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

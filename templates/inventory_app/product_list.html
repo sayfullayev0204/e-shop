@@ -1,0 +1,1129 @@
+{% extends 'inventory_app/base.html' %}
+
+{% block title %}Mahsulotlar - Omborni Boshqarish Tizimi{% endblock %}
+
+{% block extra_css %}
+<style>
+.search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.search-result-item {
+    padding: 12px 15px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s ease;
+}
+
+.search-result-item:hover {
+    background-color: #f8f9fa;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item.selected {
+    background-color: #e3f2fd;
+}
+
+.search-result-image {
+    width: 45px;
+    height: 45px;
+    border-radius: 6px;
+    object-fit: cover;
+    margin-right: 12px;
+    border: 2px solid #e9ecef;
+}
+
+.search-result-placeholder {
+    width: 45px;
+    height: 45px;
+    border-radius: 6px;
+    background-color: #f8f9fa;
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #e9ecef;
+}
+
+.search-result-info {
+    flex: 1;
+}
+
+.search-result-info h6 {
+    margin: 0 0 4px 0;
+    font-size: 0.95em;
+    font-weight: 600;
+    color: #333;
+}
+
+.search-result-info .details {
+    font-size: 0.8em;
+    color: #6c757d;
+    margin-bottom: 2px;
+}
+
+.search-result-info .stock {
+    font-size: 0.75em;
+    font-weight: 500;
+}
+
+.stock-good { color: #28a745; }
+.stock-low { color: #ffc107; }
+.stock-critical { color: #dc3545; }
+.stock-empty { color: #6c757d; }
+
+.search-container {
+    position: relative;
+}
+
+.loading-spinner {
+    position: absolute;
+    right: 45px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none;
+    color: #6c757d;
+}
+
+.no-results {
+    padding: 20px;
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.search-highlight {
+    background-color: #fff3cd;
+    padding: 1px 3px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+.quick-actions {
+    display: flex;
+    gap: 5px;
+    margin-top: 5px;
+}
+
+.quick-action-btn {
+    padding: 2px 6px;
+    font-size: 0.7em;
+    border-radius: 3px;
+    border: 1px solid #ddd;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.quick-action-btn:hover {
+    background-color: #f8f9fa;
+    border-color: #adb5bd;
+}
+
+.search-stats {
+    padding: 8px 15px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 0.8em;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+/* Filtered products styling */
+.filtered-products {
+    display: none;
+}
+
+.filtered-products.active {
+    display: block;
+}
+
+.original-products {
+    display: block;
+}
+
+.original-products.hidden {
+    display: none;
+}
+
+.filter-info {
+    background-color: #e3f2fd;
+    border: 1px solid #2196f3;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    display: none;
+}
+
+.filter-info.active {
+    display: block;
+}
+
+.clear-search-btn {
+    margin-left: 10px;
+}
+
+/* USB Scanner Styles */
+.usb-scanner-section {
+    background-color: #f8f9fa;
+    border: 2px solid #28a745;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.usb-scanner-input {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #28a745;
+    border-radius: 5px;
+    font-size: 16px;
+    background-color: white;
+}
+
+.usb-scanner-input:focus {
+    outline: none;
+    border-color: #20c997;
+    box-shadow: 0 0 5px rgba(40, 167, 69, 0.3);
+}
+
+.scanner-status {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+.scanner-active {
+    background-color: #28a745;
+    color: white;
+}
+
+.scanner-inactive {
+    background-color: #6c757d;
+    color: white;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Mahsulotlar</h1>
+    <div>
+        {% if user.is_staff %}
+        <a href="{% url 'product_add' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> Mahsulot Qo'shish
+        </a>
+        {% endif %}
+        <a href="{% url 'cart_view' %}" class="btn btn-success" id="cart-button">
+            <i class="fas fa-shopping-cart me-2"></i> Savat (<span id="cart-count">0</span>)
+        </a>
+    </div>
+</div>
+
+<!-- USB Scanner Section -->
+<div class="usb-scanner-section">
+    <div class="scanner-status scanner-inactive" id="scanner-status">
+        <i class="fas fa-usb"></i> USB Skaner
+    </div>
+    <h5><i class="fas fa-qrcode me-2"></i> USB Skaner (Tez qo'shish)</h5>
+    <p class="mb-2">USB skaner bilan QR kodni skanerlang yoki mahsulot ID sini kiriting:</p>
+    <input type="text" id="usb-scanner-input" class="usb-scanner-input" 
+           placeholder="QR kod yoki mahsulot ID ni kiriting va Enter bosing..." autofocus>
+    <small class="text-muted">Masalan: 1, 2, 3 yoki to'liq QR kod URL</small>
+</div>
+
+<!-- Search and Filter Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3" id="search-form">
+            <div class="col-md-4">
+                <label for="live-search" class="form-label">Mahsulot izlash</label>
+                <div class="search-container">
+                    <div class="input-group">
+                        <input type="text" 
+                               id="live-search" 
+                               class="form-control" 
+                               placeholder="Mahsulot nomi, tavsifi yoki kategoriya..." 
+                               value="{{ request.GET.query|default:'' }}"
+                               autocomplete="off">
+                        <div class="loading-spinner">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </div>
+                        <button class="btn btn-outline-secondary" type="button" id="clear-search" style="display: none;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" type="submit">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    <div class="search-results" id="search-results"></div>
+                    <input type="hidden" name="query" id="hidden-query" value="{{ request.GET.query|default:'' }}">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <label for="{{ form.category.id_for_label }}" class="form-label">Kategoriya boʻyicha filtrlash</label>
+                {{ form.category }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label"> </label>
+                <div class="d-grid d-flex">
+                    <a href="{% url 'qr_scanner' %}" class="btn btn-success">
+                        <i class="fas fa-qrcode"></i> Qr scanner
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter me-2"></i> Filtrlash
+                    </button>
+                </div>
+            </div>
+        </form>
+        
+        {% if request.GET.query or request.GET.category %}
+        <div class="mt-3">
+            <a href="{% url 'product_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-times me-2"></i> Filtrlarni tozalash
+            </a>
+            <span class="text-muted ms-2">
+                {% if request.GET.query %}
+                Qidiruv: "<strong>{{ request.GET.query }}</strong>"
+                {% endif %}
+                {% if request.GET.category %}
+                Kategoriyada: "<strong>{{ form.category.value }}</strong>"
+                {% endif %}
+            </span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Filter Info -->
+<div class="filter-info" id="filter-info">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <i class="fas fa-filter me-2"></i>
+            <strong>Filtrlangan natijalar:</strong> 
+            <span id="filtered-count">0</span> ta mahsulot ko'rsatilmoqda
+            <span class="text-muted">("<span id="search-term"></span>" bo'yicha)</span>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" onclick="clearLiveSearch()">
+            <i class="fas fa-times me-1"></i> Tozalash
+        </button>
+    </div>
+</div>
+
+<!-- Products Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">
+            <span id="products-title">Barcha Mahsulotlar</span>
+            {% if page_obj %}
+            <span class="badge bg-secondary" id="total-count">{{ page_obj.paginator.count }} jami</span>
+            {% endif %}
+        </h5>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary btn-sm active" id="table-view" onclick="toggleView('table')">
+                <i class="fas fa-table"></i> Jadval
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="grid-view" onclick="toggleView('grid')">
+                <i class="fas fa-th"></i> To'r
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Original Products (from server) -->
+        <div id="original-products" class="original-products">
+            {% if page_obj %}
+            
+            <!-- Table View -->
+            <div id="table-view-content">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Mahsulot</th> 
+                                <th>Kategoriya</th> 
+                                <th>Narx</th> 
+                                <th>Zaxira</th> 
+                                <th>Holat</th> 
+                                <th>Harakatlar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in page_obj %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3">
+                                            {% if product.image %}
+                                            <img src="{{ product.image.url }}" alt="{{ product.name }}" class="rounded" style="width: 50px; height: 50px; object-fit: cover;">
+                                            {% else %}
+                                            <div class="bg-light rounded d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                                <i class="fas fa-image text-muted"></i>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0">
+                                                <a href="{% url 'product_detail' product.id %}" class="text-decoration-none">
+                                                    {{ product.name }}
+                                                </a>
+                                            </h6>
+                                            {% if product.description %}
+                                            <small class="text-muted">{{ product.description|truncatechars:50 }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge badge-category">{{ product.category.name }}</span>
+                                </td>
+                                <td>
+                                    <strong class="text-success">{{ product.sale_price }} so'm</strong>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span class="{% if product.stock <= 5 %}low-stock{% endif %}">
+                                            {{ product.stock }} {% if product.unit_type == 'kg' %}kg{% else %}dona{% endif %}
+                                        </span>
+                                        {% if product.stock <= 5 %}
+                                        <i class="fas fa-exclamation-triangle text-warning ms-2" title="Zaxira kam"></i>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if product.stock > 10 %} 
+                                    <span class="badge bg-success">Stokda</span> 
+                                    {% elif product.stock > 5 %} 
+                                    <span class="badge bg-warning">Kam zaxira</span> 
+                                    {% elif product.stock > 0 %} 
+                                    <span class="badge bg-danger">Juda kam</span> 
+                                    {% else %} 
+                                    <span class="badge bg-dark">Tugagan</span> 
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'product_detail' product.id %}" class="btn btn-sm btn-outline-info" title="Batafsil">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'product_qr' product.id %}" class="btn btn-sm btn-outline-secondary" title="QR Kod">
+                                            <i class="fas fa-qrcode"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-success" onclick="openCartModal({{ product.id }}, {{ product.min_sale_price }}, '{{ product.unit_type }}')" title="Savatga qo'shish">
+                                            <i class="fas fa-shopping-cart"></i>
+                                        </button>
+                                        {% if user.is_staff %}
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                                                <i class="fas fa-cog"></i>
+                                            </button>
+                                            <ul class="dropdown-menu"> 
+                                                <li><a class="dropdown-item" href="{% url 'product_edit' product.id %}"> 
+                                                    <i class="fas fa-edit me-2"></i> Tahrirlash 
+                                                </a></li> 
+                                                <li><a class="dropdown-item" href="{% url 'stock_add' product.id %}"> 
+                                                    <i class="fas fa-plus me-2"></i> Zaxira qo'shish 
+                                                </a></li> 
+                                                <li><a class="dropdown-item" href="#" onclick="openStockRemoveModal({{ product.id }}, {{ product.min_sale_price }})" {% if product.stock == 0 %}class="disabled"{% endif %}> 
+                                                    <i class="fas fa-minus me-2"></i> Zaxira olib tashlash 
+                                                </a></li> 
+                                                <li><hr class="dropdown-divider"></li> 
+                                                <li><a class="dropdown-item text-danger" href="#" 
+                                                    data-bs-toggle="modal" data-bs-target="#deleteModal{{ product.id }}"> 
+                                                    <i class="fas fa-trash me-2"></i> O'chirish 
+                                                </a></li> 
+                                            </ul>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- Delete Modal for each product -->
+                            <div class="modal fade" id="deleteModal{{ product.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header"> 
+                                            <h5 class="modal-title">O'chirishni tasdiqlash</h5> 
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button> 
+                                        </div> 
+                                        <div class="modal-body"> 
+                                            Haqiqatan ham "<strong>{{ product.name }}</strong>"ni o'chirib tashlamoqchimisiz? 
+                                            <div class="alert alert-warning mt-2"> 
+                                                <small><strong>Ogohlantirish:</strong> Bu amalni bekor qilib bo'lmaydi va barcha tranzaksiya tarixini o'chiradi.</small> 
+                                            </div> 
+                                        </div> 
+                                        <div class="modal-footer"> 
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button> 
+                                            <a href="{% url 'product_delete' product.id %}" class="btn btn-danger">O'chirish</a> 
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Grid View -->
+            <div id="grid-view-content" style="display: none;">
+                <div class="row">
+                    {% for product in page_obj %}
+                    <div class="col-md-4 col-lg-3 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="text-center mb-3">
+                                    {% if product.image %}
+                                    <img src="{{ product.image.url }}" alt="{{ product.name }}" class="rounded" style="width: 80px; height: 80px; object-fit: cover;">
+                                    {% else %}
+                                    <div class="bg-light rounded p-3 d-inline-block">
+                                        <i class="fas fa-image fa-2x text-muted"></i>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <h6 class="card-title text-center">
+                                    <a href="{% url 'product_detail' product.id %}" class="text-decoration-none">
+                                        {{ product.name|truncatechars:20 }}
+                                    </a>
+                                </h6>
+                                <div class="text-center mb-2">
+                                    <span class="badge badge-category">{{ product.category.name }}</span>
+                                </div>
+                                <div class="text-center mb-2">
+                                    <h5 class="text-success">Narx: {{ product.sale_price }} so'm</h5>
+                                </div>
+                                <div class="text-center mb-3">
+                                    <span class="{% if product.stock <= 5 %}low-stock{% endif %}">
+                                        {{ product.stock }} {% if product.unit_type == 'kg' %}kg{% else %}dona{% endif %}
+                                    </span>
+                                    {% if product.stock <= 5 %}
+                                    <i class="fas fa-exclamation-triangle text-warning ms-1"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <a href="{% url 'product_detail' product.id %}" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-eye me-2"></i> Batafsil
+                                    </a>
+                                    <div class="btn-group" role="group">
+                                        {% if user.is_staff %}
+                                        <a href="{% url 'stock_add' product.id %}" class="btn btn-success btn-sm">
+                                            <i class="fas fa-plus"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-danger btn-sm" onclick="openStockRemoveModal({{ product.id }}, {{ product.min_sale_price }})" {% if product.stock == 0 %}disabled{% endif %}>
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                        {% endif %}
+                                        <a href="{% url 'product_qr' product.id %}" class="btn btn-outline-secondary btn-sm">
+                                            <i class="fas fa-qrcode"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-outline-success btn-sm" onclick="openCartModal({{ product.id }}, {{ product.min_sale_price }}, '{{ product.unit_type }}')">
+                                            <i class="fas fa-shopping-cart"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+            <nav aria-label="Mahsulotlar sahifalari" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}{% if request.GET.category %}category={{ request.GET.category }}&{% endif %}page=1">Birinchi</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}{% if request.GET.category %}category={{ request.GET.category }}&{% endif %}page={{ page_obj.previous_page_number }}">Oldingi</a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}{% if request.GET.category %}category={{ request.GET.category }}&{% endif %}page={{ num }}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}{% if request.GET.category %}category={{ request.GET.category }}&{% endif %}page={{ page_obj.next_page_number }}">Keyingi</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}{% if request.GET.category %}category={{ request.GET.category }}&{% endif %}page={{ page_obj.paginator.num_pages }}">Oxirgi</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            
+            <div class="text-center text-muted">
+                {{ page_obj.start_index }} dan {{ page_obj.end_index }} gacha, jami {{ page_obj.paginator.count }} mahsulot
+            </div>
+            {% endif %}
+
+            {% else %}
+            <!-- Empty State -->
+            <div class="text-center py-5">
+                <i class="fas fa-box-open fa-4x text-muted mb-4"></i>
+                <h4 class="text-muted">Mahsulotlar topilmadi</h4>
+                {% if request.GET.query or request.GET.category %}
+                <p class="text-muted">Qidiruv mezonlari yoki filtrlaringizni o'zgartirib ko'ring.</p>
+                <a href="{% url 'product_list' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-times me-2"></i> Filtrlarni tozalash
+                </a>
+                {% else %}
+                <p class="text-muted">Omborga birinchi mahsulotni qo'shishdan boshlang.</p>
+                <a href="{% url 'product_add' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i> Birinchi mahsulotni qo'shish
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Filtered Products (from live search) -->
+        <div id="filtered-products" class="filtered-products">
+            <!-- Bu yerda JavaScript orqali filtrlangan mahsulotlar ko'rsatiladi -->
+        </div>
+
+        <!-- Stock Remove Modal -->
+        <div class="modal fade" id="stockRemoveModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Zaxirani olib tashlash</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="stockRemoveForm">
+                            <input type="hidden" id="productId">
+                            <div class="mb-3">
+                                <label for="soldPrice" class="form-label">Sotilgan narxi (so'm) *</label>
+                                <input type="number" id="soldPrice" step="0.01" class="form-control" required>
+                                <small class="text-muted">Minimal narx: <span id="minSalePrice"></span> so'mdan yuqori bo'lishi kerak</small>
+                                <div id="soldPriceError" class="text-danger" style="display: none;"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="quantity" class="form-label">Soni *</label>
+                                <input type="number" id="quantity" min="0.01" step="0.01" class="form-control" required value="1">
+                            </div>
+                            <div class="mb-3">
+                                <label for="notes" class="form-label">Eslatmalar</label>
+                                <textarea id="notes" class="form-control" rows="2"></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                        <button type="button" class="btn btn-danger" onclick="quickStockUpdate()">Saqlash</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add to Cart Modal -->
+        <div class="modal fade" id="cartModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Savatga qo'shish</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="cartForm">
+                            {% csrf_token %}
+                            <input type="hidden" id="cartProductId">
+                            <input type="hidden" id="cartMinSalePrice">
+                            <div class="mb-3">
+                                <label for="cartSoldPrice" class="form-label">Sotilgan narxi (so'm) *</label>
+                                <input type="number" id="cartSoldPrice" step="0.01" class="form-control" required placeholder="Sotilgan narxini kiriting">
+                                <div id="cartSoldPriceError" class="text-danger" style="display: none;"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="cartQuantity" class="form-label">Miqdor (<span id="unitType"></span>) *</label>
+                                <input type="number" id="cartQuantity" min="0.01" step="0.01" class="form-control" required value="1">
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                        <button type="button" class="btn btn-success" onclick="addToCart()">Qo'shish</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- USB Scanner Result Modal -->
+        <div class="modal fade" id="usbScannerModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Mahsulot topildi</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="usbScannerModalBody">
+                        <!-- Mahsulot ma'lumotlari bu yerda ko'rsatiladi -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                        <button type="button" class="btn btn-success" id="usbAddToCart">Savatga qo'shish</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// CSRF token olish
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+const csrftoken = getCookie('csrftoken');
+
+// Cart count ni yangilash
+function updateCartCount() {
+    fetch('/api/cart/count/', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': csrftoken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('cart-count').textContent = data.count;
+        }
+    })
+    .catch(error => {
+        console.error('Cart count olishda xatolik:', error);
+    });
+}
+
+// Sotilgan narxni tekshirish
+function validateSoldPrice(soldPrice, minSalePrice, errorElementId) {
+    const errorElement = document.getElementById(errorElementId);
+    
+    if (parseFloat(soldPrice) <= parseFloat(minSalePrice)) {
+        errorElement.textContent = `Bu narxda sotolmaysiz! Yuqoriroq narx kiriting.`;
+        errorElement.style.display = 'block';
+        return false;
+    } else {
+        errorElement.style.display = 'none';
+        return true;
+    }
+}
+
+// View toggle funksiyasi
+function toggleView(viewType) {
+    const tableView = document.getElementById('table-view-content');
+    const gridView = document.getElementById('grid-view-content');
+    const tableBtn = document.getElementById('table-view');
+    const gridBtn = document.getElementById('grid-view');
+
+    if (viewType === 'table') {
+        tableView.style.display = 'block';
+        gridView.style.display = 'none';
+        tableBtn.classList.add('active');
+        gridBtn.classList.remove('active');
+        localStorage.setItem('productView', 'table');
+    } else {
+        tableView.style.display = 'none';
+        gridView.style.display = 'block';
+        tableBtn.classList.remove('active');
+        gridBtn.classList.add('active');
+        localStorage.setItem('productView', 'grid');
+    }
+}
+
+// USB Scanner funksiyalari
+let currentScannedProduct = null;
+
+function processUSBScannerInput(input) {
+    const scannerStatus = document.getElementById('scanner-status');
+    
+    // QR kod formatini aniqlash va ID ni olish
+    let productId = null;
+    
+    // URL formatidagi QR kodlarni tekshirish
+    if (input.includes('/products/')) {
+        const urlParts = input.split('/');
+        for (let i = 0; i < urlParts.length; i++) {
+            if (urlParts[i] === 'products' && i + 1 < urlParts.length) {
+                productId = urlParts[i + 1].replace(/\D/g, ''); // Faqat raqamlarni olish
+                break;
+            }
+        }
+    } else {
+        // Agar oddiy raqam bo'lsa
+        productId = input.replace(/\D/g, '');
+    }
+    
+    if (!productId) {
+        alert('Noto\'g\'ri QR kod yoki mahsulot ID formati!');
+        return;
+    }
+    
+    // Scanner status ni active qilish
+    scannerStatus.className = 'scanner-status scanner-active';
+    scannerStatus.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Yuklanmoqda...';
+    
+    // Mahsulot ma'lumotlarini olish
+    fetch(`/api/products/${productId}/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Mahsulot topilmadi');
+            }
+            return response.json();
+        })
+        .then(product => {
+            currentScannedProduct = product;
+            displayUSBScannerResult(product);
+            scannerStatus.className = 'scanner-status scanner-active';
+            scannerStatus.innerHTML = '<i class="fas fa-check"></i> Topildi!';
+            
+            // 2 soniyadan keyin inactive qilish
+            setTimeout(() => {
+                scannerStatus.className = 'scanner-status scanner-inactive';
+                scannerStatus.innerHTML = '<i class="fas fa-usb"></i> USB Skaner';
+            }, 2000);
+        })
+        .catch(error => {
+            alert(`Xatolik: ${error.message}`);
+            scannerStatus.className = 'scanner-status scanner-inactive';
+            scannerStatus.innerHTML = '<i class="fas fa-usb"></i> USB Skaner';
+        });
+}
+
+function displayUSBScannerResult(product) {
+    const modalBody = document.getElementById('usbScannerModalBody');
+    const imageUrl = product.image_url || '/static/inventory_app/img/no-image.png';
+    
+    modalBody.innerHTML = `
+        <div class="d-flex align-items-center mb-3">
+            <img src="${imageUrl}" alt="${product.name}" class="rounded me-3" style="width: 80px; height: 80px; object-fit: cover;">
+            <div>
+                <h5 class="mb-1">${product.name}</h5>
+                <p class="mb-1 text-muted">${product.category}</p>
+                <p class="mb-0"><strong>Tavsiya etilgan narx:</strong> ${product.sale_price} so'm</p>
+                <p class="mb-0"><strong>Zaxira:</strong> ${product.stock} ${product.unit_type === 'piece' ? 'dona' : 'kg'}</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="usbQuantity" class="form-label">Miqdor</label>
+                <input type="number" id="usbQuantity" class="form-control" value="1" min="0.01" step="0.01" max="${product.stock}">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="usbSoldPrice" class="form-label">Sotilgan narxi (so'm)</label>
+                <input type="number" id="usbSoldPrice" class="form-control" value="${product.sale_price}" min="0" step="500">
+                <div id="usbPriceError" class="text-danger" style="display: none;"></div>
+            </div>
+        </div>
+    `;
+    
+    // Narx validatsiyasi uchun event listener
+    const priceInput = document.getElementById('usbSoldPrice');
+    priceInput.addEventListener('input', function() {
+        validateUSBPrice(this.value, product.min_sale_price);
+    });
+    
+    // Modal ni ko'rsatish
+    const modal = new bootstrap.Modal(document.getElementById('usbScannerModal'));
+    modal.show();
+}
+
+function validateUSBPrice(price, minPrice) {
+    const errorDiv = document.getElementById('usbPriceError');
+    if (parseFloat(price) <= parseFloat(minPrice)) {
+        errorDiv.textContent = "Bu narxda sotolmaysiz! Yuqoriroq narx kiriting.";
+        errorDiv.style.display = 'block';
+        return false;
+    } else {
+        errorDiv.style.display = 'none';
+        return true;
+    }
+}
+
+function addUSBScannedToCart() {
+    if (!currentScannedProduct) return;
+    
+    const quantity = parseFloat(document.getElementById('usbQuantity').value);
+    const soldPrice = parseFloat(document.getElementById('usbSoldPrice').value);
+    
+    // Narxni tekshirish
+    if (!validateUSBPrice(soldPrice, currentScannedProduct.min_sale_price)) {
+        return;
+    }
+    
+    // Savatga qo'shish
+    fetch('/api/cart/add/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({
+            product_id: currentScannedProduct.id,
+            quantity: quantity,
+            sold_price: soldPrice
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Mahsulot savatga qo\'shildi!');
+            document.querySelector('#usbScannerModal .btn-close').click();
+            updateCartCount();
+            
+            // USB input ni tozalash va focus qilish
+            const usbInput = document.getElementById('usb-scanner-input');
+            usbInput.value = '';
+            usbInput.focus();
+        } else {
+            alert('Xatolik: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Xatolik:', error);
+        alert('Savatga qo\'shishda xatolik yuz berdi.');
+    });
+}
+
+// Document ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Cart count ni yuklash
+    updateCartCount();
+
+    // View toggle
+    const savedView = localStorage.getItem('productView') || 'table';
+    toggleView(savedView);
+
+    // USB Scanner input event listener
+    const usbScannerInput = document.getElementById('usb-scanner-input');
+    usbScannerInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const input = this.value.trim();
+            if (input) {
+                processUSBScannerInput(input);
+                this.value = '';
+            }
+        }
+    });
+
+    // USB Scanner modal add to cart button
+    document.getElementById('usbAddToCart').addEventListener('click', addUSBScannedToCart);
+
+    // Sold price validation events
+    document.getElementById('cartSoldPrice').addEventListener('input', function() {
+        const minSalePrice = document.getElementById('cartMinSalePrice').value;
+        validateSoldPrice(this.value, minSalePrice, 'cartSoldPriceError');
+    });
+    
+    // Stock remove modal validation
+    document.getElementById('soldPrice').addEventListener('input', function() {
+        const minSalePrice = document.getElementById('minSalePrice').textContent;
+        validateSoldPrice(this.value, minSalePrice, 'soldPriceError');
+    });
+
+    // USB input ga focus qilish
+    usbScannerInput.focus();
+    
+    // Sahifa fokusga qaytganda USB inputga focus qilish
+    window.addEventListener('focus', function() {
+        usbScannerInput.focus();
+    });
+});
+
+function openCartModal(productId, minSalePrice, unitType) {
+    document.getElementById('cartProductId').value = productId;
+    document.getElementById('cartMinSalePrice').value = minSalePrice;
+    document.getElementById('cartSoldPrice').value = '';
+    document.getElementById('cartQuantity').value = '1';
+    document.getElementById('unitType').innerText = unitType === 'kg' ? 'kg' : 'dona';
+    document.getElementById('cartSoldPriceError').style.display = 'none';
+    new bootstrap.Modal(document.getElementById('cartModal')).show();
+}
+
+function addToCart() {
+    const productId = document.getElementById('cartProductId').value;
+    const soldPrice = document.getElementById('cartSoldPrice').value;
+    const quantity = document.getElementById('cartQuantity').value;
+    const minSalePrice = document.getElementById('cartMinSalePrice').value;
+
+    if (!validateSoldPrice(soldPrice, minSalePrice, 'cartSoldPriceError')) {
+        return;
+    }
+
+    const url = `/api/cart/add/`;
+    const data = {
+        product_id: productId,
+        quantity: quantity,
+        sold_price: soldPrice
+    };
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Mahsulot savatga qo\'shildi!');
+            document.querySelector('#cartModal .btn-close').click();
+            updateCartCount();
+        } else {
+            alert('Xatolik: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Xatolik:', error);
+        alert('Savatga qo\'shishda xatolik yuz berdi.');
+    });
+}
+
+// Zaxirani kamaytirish modal
+function openStockRemoveModal(productId, minSalePrice) {
+    document.getElementById('productId').value = productId;
+    document.getElementById('minSalePrice').textContent = minSalePrice;
+    document.getElementById('soldPrice').value = '';
+    document.getElementById('quantity').value = '1';
+    document.getElementById('notes').value = '';
+    document.getElementById('soldPriceError').style.display = 'none';
+    new bootstrap.Modal(document.getElementById('stockRemoveModal')).show();
+}
+
+// Zaxirani kamaytirish funksiyasi
+function quickStockUpdate() {
+    const productId = document.getElementById('productId').value;
+    const soldPrice = document.getElementById('soldPrice').value;
+    const quantity = document.getElementById('quantity').value;
+    const notes = document.getElementById('notes').value;
+    const minSalePrice = document.getElementById('minSalePrice').textContent;
+
+    if (!validateSoldPrice(soldPrice, minSalePrice, 'soldPriceError')) {
+        return;
+    }
+
+    const url = `/api/stock/update/`;
+    const data = {
+        product_id: productId,
+        quantity: quantity,
+        transaction_type: 'OUT',
+        sale_price: soldPrice,
+        notes: notes || 'Tez zaxiradan chiqarish'
+    };
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Zaxira muvaffaqiyatli kamaytirildi!');
+            document.querySelector('#stockRemoveModal .btn-close').click();
+            location.reload();
+        } else {
+            alert('Xatolik: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Xatolik:', error);
+        alert('Zaxirani kamaytirishda xatolik yuz berdi.');
+    });
+}
+
+// Live search va boshqa funksiyalar (soddalashtirilgan)
+let searchTimeout;
+let currentSearchRequest;
+
+function clearLiveSearch() {
+    document.getElementById('live-search').value = '';
+    document.getElementById('search-results').style.display = 'none';
+    document.getElementById('clear-search').style.display = 'none';
+}
+
+// Live search event listener
+document.addEventListener('DOMContentLoaded', function() {
+    const liveSearchInput = document.getElementById('live-search');
+    if (liveSearchInput) {
+        liveSearchInput.addEventListener('input', function(e) {
+            const query = e.target.value.trim();
+            
+            clearTimeout(searchTimeout);
+            
+            if (query.length === 0) {
+                clearLiveSearch();
+                return;
+            }
+            
+            // Simple search without complex filtering for now
+            searchTimeout = setTimeout(() => {
+                console.log('Searching for:', query);
+            }, 200);
+        });
+    }
+
+    // Clear search button
+    const clearSearchBtn = document.getElementById('clear-search');
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', clearLiveSearch);
+    }
+});
+</script>
+{% endblock %}

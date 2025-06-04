@@ -1,0 +1,396 @@
+{% extends 'inventory_app/base.html' %}
+
+{% block sarlavha %}{{ product.name }} - Mahsulot Tafsilotlari{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ product.name }}</h1>
+        <div>
+            <a href="{% url 'product_list' %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-arrow-left me-2"></i> Mahsulotlarga Qaytish
+            </a>
+            
+            {% if user.is_staff %}
+            <a href="{% url 'product_edit' product.id %}" class="btn btn-primary">
+                <i class="fas fa-edit me-2"></i> Mahsulotni Tahrirlash
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Mahsulot Ma'lumotlari</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Nomi</h6>
+                            <p class="h5">{{ product.name }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Kategoriya</h6>
+                            <p><span class="badge badge-category">{{ product.category.name }}</span></p>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Kelgan Narx</h6>
+                            <p class="h4 text-success">{{ product.cost_price }} so‘m</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Minimal Sotuv Narxi</h6>
+                            <p class="h4 text-primary">{{ product.min_sale_price }} so‘m</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Zaxira</h6>
+                            <p class="h4 {% if product.stock <= 5 %}low-stock{% endif %}">
+                                {{ product.stock }} {% if product.unit_type == 'kg' %}kg{% else %}dona{% endif %}
+                                {% if product.stock <= 5 %}
+                                <i class="fas fa-exclamation-triangle text-warning ms-2"></i>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {% if product.description %}
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="text-muted">Tavsif</h6>
+                            <p>{{ product.description }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Yaratilgan</h6>
+                            <p>{{ product.created_at|date:"M d, Y H:i" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Oxirgi Yangilangan</h6>
+                            <p>{{ product.updated_at|date:"M d, Y H:i" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zaxira Boshqaruvi -->
+             
+            {% if user.is_staff %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Zaxira Boshqaruvi</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <a href="{% url 'stock_add' product.id %}" class="btn btn-success w-100">
+                                <i class="fas fa-plus me-2"></i> Zaxira Qo‘shish
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <button type="button" class="btn btn-danger w-100" 
+                                    onclick="openStockRemoveModal({{ product.id }}, {{ product.min_sale_price }})"
+                                    {% if product.stock == 0 %}disabled{% endif %}>
+                                <i class="fas fa-minus me-2"></i> Zaxirani Kamaytirish
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Savatga qo‘shish -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Savatga Qo‘shish</h5>
+                </div>
+                <div class="card-body">
+                    <button type="button" class="btn btn-success w-100" 
+                            onclick="openCartModal({{ product.id }}, {{ product.min_sale_price }}, '{{ product.unit_type }}')">
+                        <i class="fas fa-shopping-cart me-2"></i> Savatga Qo‘shish
+                    </button>
+                </div>
+            </div>
+
+            
+            {% if user.is_staff %}
+            <!-- So‘nggi Tranzaksiyalar -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">So‘nggi Tranzaksiyalar</h5>
+                </div>
+                <div class="card-body">
+                    {% if transactions %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Turi</th>
+                                    <th>Soni</th>
+                                    <th>Sotuv Narxi</th>
+                                    <th>Foydalanuvchi</th>
+                                    <th>Sana</th>
+                                    <th>Eslatmalar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in transactions %}
+                                <tr>
+                                    <td>
+                                        {% if transaction.transaction_type == 'IN' %}
+                                        <span class="badge bg-success">Kirim</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Chiqim</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ transaction.quantity }} {% if transaction.product.unit_type == 'kg' %}kg{% else %}dona{% endif %}</td>
+                                    <td>
+                                        {% if transaction.sale_price %}
+                                        {{ transaction.sale_price }} so‘m
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ transaction.user.username }}</td>
+                                    <td>{{ transaction.timestamp|date:"M d, Y H:i" }}</td>
+                                    <td>{{ transaction.notes|default:"-" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Ushbu mahsulot uchun tranzaksiyalar topilmadi.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <!-- Mahsulot Rasmi -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Mahsulot Rasmi</h5>
+                </div>
+                <div class="card-body text-center">
+                    {% if product.image %}
+                    <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-fluid rounded" style="max-width: 100%; max-height: 300px;">
+                    {% else %}
+                    <div class="bg-light rounded p-5">
+                        <i class="fas fa-image fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Rasm mavjud emas</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- QR Kod -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">QR Kod</h5>
+                </div>
+                <div class="card-body text-center">
+                    {% if product.qr_code %}
+                    <div class="qr-container">
+                        <img src="{{ product.qr_code.url }}" alt="QR Kod" class="img-fluid" style="max-width: 200px;">
+                    </div>
+                    <div class="mt-3">
+                        <a href="{% url 'product_qr' product.id %}" class="btn btn-outline-primary">
+                            <i class="fas fa-download me-2"></i> QR Kodni Yuklab Olish
+                        </a>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">QR Kod mavjud emas</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            
+            {% if user.is_staff %}
+            <!-- Amallar -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Amallar</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'product_edit' product.id %}" class="btn btn-primary">
+                            <i class="fas fa-edit me-2"></i> Mahsulotni Tahrirlash
+                        </a>
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                            <i class="fas fa-trash me-2"></i> Mahsulotni O‘chirish
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Zaxira Kamaytirish Modal -->
+     
+    {% if user.is_staff %}
+    <div class="modal fade" id="stockRemoveModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Zaxirani Kamaytirish</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="stockRemoveForm">
+                        <input type="hidden" id="productId">
+                        <div class="mb-3">
+                            <label for="salePrice" class="form-label">Sotuv Narxi (so‘m) *</label>
+                            <input type="number" id="salePrice" step="0.01" class="form-control" required>
+                            <small class="text-muted">Minimal sotuv narxi: <span id="minSalePrice"></span> so‘m</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="quantity" class="form-label">Soni *</label>
+                            <input type="number" id="quantity" min="0.01" step="0.01" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Eslatmalar</label>
+                            <textarea id="notes" class="form-control" rows="2"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor Qilish</button>
+                    <button type="button" class="btn btn-danger" onclick="quickStockUpdate()">Saqlash</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- O‘chirishni Tasdiqlash Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteModalLabel">O‘chirishni Tasdiqlash</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    "{{ product.name }}" mahsulotini o‘chirishni xohlaysizmi? Bu amal qaytarib bo‘lmaydi.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor Qilish</button>
+                    <a href="{% url 'product_delete' product.id %}" class="btn btn-danger">O‘chirish</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add to Cart Modal -->
+    <div class="modal fade" id="cartModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Savatga qo‘shish</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="cartForm">
+                        {% csrf_token %}
+                        <input type="hidden" id="cartProductId">
+                        <div class="mb-3">
+                            <label for="cartSalePrice" class="form-label">Sotuv narxi (so‘m) *</label>
+                            <input type="number" id="cartSalePrice" step="0.01" class="form-control" required>
+                            <small class="text-muted">Minimal sotuv narxi: <span id="cartMinSalePrice"></span> so‘m</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="cartQuantity" class="form-label">Miqdor (<span id="unitType"></span>) *</label>
+                            <input type="number" id="cartQuantity" min="0.01" step="0.01" class="form-control" required value="1">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="button" class="btn btn-success" onclick="addToCart()">Qo‘shish</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function openCartModal(productId, minSalePrice, unitType) {
+        // Modal ochish
+        document.getElementById('cartProductId').value = productId;
+        document.getElementById('cartMinSalePrice').innerText = minSalePrice;
+        document.getElementById('cartSalePrice').setAttribute('min', minSalePrice);
+        document.getElementById('cartSalePrice').value = minSalePrice;
+        document.getElementById('cartQuantity').value = '1';
+        document.getElementById('unitType').innerText = unitType === 'kg' ? 'kg' : 'dona';
+        new bootstrap.Modal(document.getElementById('cartModal')).show();
+    }
+
+    function addToCart() {
+        const productId = document.getElementById('cartProductId').value;
+        const salePrice = document.getElementById('cartSalePrice').value;
+        const quantity = document.getElementById('cartQuantity').value;
+        const minSalePrice = document.getElementById('cartMinSalePrice').innerText;
+
+        if (!productId || !salePrice || !quantity) {
+            alert('Barcha maydonlarni to‘ldiring!');
+            return;
+        }
+
+        if (parseFloat(salePrice) < parseFloat(minSalePrice)) {
+            alert(`Sotuv narxi ${minSalePrice} so‘mdan kam bo‘lmasligi kerak!`);
+            return;
+        }
+
+        const url = "{% url 'cart_add' %}";
+        const data = {
+            product_id: productId,
+            quantity: quantity,
+            sale_price: salePrice
+        };
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Mahsulot savatga qo‘shildi!');
+                document.querySelector('#cartModal .btn-close').click();
+                updateCartCount(data.cart_count);
+            } else {
+                alert('Xatolik: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Xatolik:', error);
+            alert('Savatga qo‘shishda xatolik yuz berdi.');
+        });
+    }
+
+    function updateCartCount(count) {
+        const cartButton = document.querySelector('a[href="{% url 'cart_view' %}"]');
+        if (cartButton) {
+            cartButton.innerHTML = `<i class="fas fa-shopping-cart me-2"></i> Savat (${count})`;
+        }
+    }
+</script>
+{% endblock %}

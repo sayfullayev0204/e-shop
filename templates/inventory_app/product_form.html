@@ -1,0 +1,220 @@
+{% extends 'inventory_app/base.html' %}
+
+{% block title %}
+    {% if product %}Mahsulotni Tahrirlash{% else %}Yangi Mahsulot Qo'shish{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1>{% if product %}Mahsulotni Tahrirlash{% else %}Yangi Mahsulot Qo'shish{% endif %}</h1>
+    <div class="card">
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data" id="product-form">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label for="{{ form.name.id_for_label }}" class="form-label">Mahsulot Nomi *</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <div class="text-danger">{{ form.name.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">Tavsif</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <div class="text-danger">{{ form.description.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label for="{{ form.image.id_for_label }}" class="form-label">Mahsulot Rasmi</label>
+                        {{ form.image }}
+                        {% if form.image.errors %}
+                            <div class="text-danger">{{ form.image.errors.0 }}</div>
+                        {% endif %}
+                        {% if product and product.image %}
+                            <div class="mt-2">
+                                <small class="text-muted">Joriy rasm:</small><br>
+                                <img src="{{ product.image.url }}" alt="Joriy mahsulot rasmi" class="img-thumbnail" style="max-width: 150px;">
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Narxlar qismi -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Narx Ma'lumotlari</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.cost_price.id_for_label }}" class="form-label">{{ form.cost_price.label }} *</label>
+                                {{ form.cost_price }}
+                                {% if form.cost_price.errors %}
+                                    <div class="text-danger">{{ form.cost_price.errors.0 }}</div>
+                                {% endif %}
+                                <small class="text-muted">Mahsulotning kelgan narxi</small>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.min_sale_price.id_for_label }}" class="form-label">{{ form.min_sale_price.label }} *</label>
+                                {{ form.min_sale_price }}
+                                {% if form.min_sale_price.errors %}
+                                    <div class="text-danger">{{ form.min_sale_price.errors.0 }}</div>
+                                {% endif %}
+                                <small class="text-muted">Eng kam sotish narxi</small>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.sale_price.id_for_label }}" class="form-label">{{ form.sale_price.label }} *</label>
+                                {{ form.sale_price }}
+                                {% if form.sale_price.errors %}
+                                    <div class="text-danger">{{ form.sale_price.errors.0 }}</div>
+                                {% endif %}
+                                <small class="text-muted">Tavsiya etilgan sotish narxi</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.stock.id_for_label }}" class="form-label">Boshlang'ich Zaxira * <small id="stock-unit"></small></label>
+                        {{ form.stock }}
+                        {% if form.stock.errors %}
+                            <div class="text-danger">{{ form.stock.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.unit_type.id_for_label }}" class="form-label">O'lchov Birligi *</label>
+                        {{ form.unit_type }}
+                        {% if form.unit_type.errors %}
+                            <div class="text-danger">{{ form.unit_type.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.category.id_for_label }}" class="form-label">Kategoriya *</label>
+                        {{ form.category }}
+                        {% if form.category.errors %}
+                            <div class="text-danger">{{ form.category.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="fas fa-save me-2"></i> 
+                            {% if product %}Mahsulotni Yangilash{% else %}Mahsulot Yaratish{% endif %}
+                        </button>
+                        <a href="{% url 'product_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-times me-2"></i> Bekor Qilish
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const unitTypeSelect = document.querySelector('#{{ form.unit_type.id_for_label }}');
+        const stockInput = document.querySelector('#{{ form.stock.id_for_label }}');
+        const stockUnitLabel = document.querySelector('#stock-unit');
+        const costPriceInput = document.querySelector('#{{ form.cost_price.id_for_label }}');
+        const minSalePriceInput = document.querySelector('#{{ form.min_sale_price.id_for_label }}');
+        const salePriceInput = document.querySelector('#{{ form.sale_price.id_for_label }}');
+
+        function updateStockInput() {
+            const unitType = unitTypeSelect.value;
+            if (unitType === 'kg') {
+                stockInput.setAttribute('step', '0.01');
+                stockInput.setAttribute('placeholder', 'Masalan, 10.50');
+                stockUnitLabel.textContent = '(kg)';
+            } else if (unitType === 'dona') {
+                stockInput.setAttribute('step', '1');
+                stockInput.setAttribute('placeholder', 'Masalan, 10');
+                stockUnitLabel.textContent = '(dona)';
+                if (stockInput.value && !Number.isInteger(parseFloat(stockInput.value))) {
+                    stockInput.value = Math.floor(parseFloat(stockInput.value));
+                }
+            }
+        }
+
+        function validatePrices() {
+            const costPrice = parseFloat(costPriceInput.value) || 0;
+            const minSalePrice = parseFloat(minSalePriceInput.value) || 0;
+            const salePrice = parseFloat(salePriceInput.value) || 0;
+            
+            // Minimal narx tekshiruvi
+            if (minSalePrice > 0 && costPrice > 0) {
+                if (minSalePrice < costPrice) {
+                    minSalePriceInput.setCustomValidity('Minimal narx kelgan narxdan kam bo\'lmasligi kerak.');
+                } else {
+                    minSalePriceInput.setCustomValidity('');
+                }
+            }
+
+            // Sotish narxi tekshiruvi
+            if (salePrice > 0 && minSalePrice > 0) {
+                if (salePrice < minSalePrice) {
+                    salePriceInput.setCustomValidity('Sotish narxi minimal narxdan kam bo\'lmasligi kerak.');
+                } else {
+                    salePriceInput.setCustomValidity('');
+                }
+            }
+        }
+
+        // Dastlabki holatni o'rnatish
+        updateStockInput();
+
+        // Event listeners
+        unitTypeSelect.addEventListener('change', updateStockInput);
+        costPriceInput.addEventListener('input', validatePrices);
+        minSalePriceInput.addEventListener('input', validatePrices);
+        salePriceInput.addEventListener('input', validatePrices);
+
+        // Form submit validation
+        document.querySelector('#product-form').addEventListener('submit', function(e) {
+            const unitType = unitTypeSelect.value;
+            const stockValue = parseFloat(stockInput.value);
+            
+            if (unitType === 'dona' && !Number.isInteger(stockValue)) {
+                e.preventDefault();
+                alert('Dona uchun zaxira butun son bo\'lishi kerak!');
+                stockInput.focus();
+                return;
+            }
+
+            validatePrices();
+            
+            if (!minSalePriceInput.checkValidity()) {
+                e.preventDefault();
+                alert(minSalePriceInput.validationMessage);
+                minSalePriceInput.focus();
+                return;
+            }
+
+            if (!salePriceInput.checkValidity()) {
+                e.preventDefault();
+                alert(salePriceInput.validationMessage);
+                salePriceInput.focus();
+                return;
+            }
+        });
+    });
+</script>
+{% endblock %}

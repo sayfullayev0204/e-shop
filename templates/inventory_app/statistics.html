@@ -1,0 +1,176 @@
+{% extends 'inventory_app/base.html' %}
+
+{% block title %}Statistics - Inventory Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Xaridlar Statistikasi</h1>
+        <div>
+            <form method="get" class="d-flex">
+                <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" class="form-control me-2">
+                <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" class="form-control me-2">
+                <button type="submit" class="btn btn-primary">Filter</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Daily Statistics Chart -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Kunlik xaridlar ({{ start_date|date:"M d" }} - {{ end_date|date:"M d, Y" }})</h5>
+        </div>
+        <div class="card-body">
+            {% if daily_stats %}
+            <canvas id="dailySalesChart" width="400" height="100"></canvas>
+            {% else %}
+            <p class="text-muted text-center py-4">Tanlangan davr uchun ma’lumotlar mavjud emas.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Top Selling Products -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Eng ko'p sotiladigan mahsulotlar</h5>
+                </div>
+                <div class="card-body">
+                    {% if top_products %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Maxsulot</th>
+                                    <th>Umumiy xarid</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in top_products %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'product_detail' product.id %}" class="text-decoration-none">
+                                            {{ product.name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ product.total_sold|default:0 }} birliklar</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Savdo maʼlumotlari mavjud emas.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Distribution -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Kategoriya bo'yicha sotish</h5>
+                </div>
+                <div class="card-body">
+                    {% if category_stats %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Kategoriya</th>
+                                    <th>Umumiy xarid</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for category in category_stats %}
+                                <tr>
+                                    <td>{{ category.name }}</td>
+                                    <td>{{ category.total_sold|default:0 }} units</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No category data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    {% if daily_stats %}
+    // Daily Sales Chart
+    const ctx = document.getElementById('dailySalesChart').getContext('2d');
+    const dailySalesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [
+                {% for stat in daily_stats %}
+                '{{ stat.date|date:"M d" }}'{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            datasets: [{
+                label: 'Sales',
+                data: [
+                    {% for stat in daily_stats %}
+                    {{ stat.total_sales }}{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                ],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1
+            }, {
+                label: 'Revenue ($)',
+                data: [
+                    {% for stat in daily_stats %}
+                    {{ stat.total_revenue }}{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                ],
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                tension: 0.1,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Units Sold'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Revenue ($)'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            }
+        }
+    });
+    {% endif %}
+</script>
+{% endblock %}
