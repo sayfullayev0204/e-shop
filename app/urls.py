@@ -79,6 +79,7 @@ urlpatterns = [
     
     path('api/printer/test/', views.test_printer, name='test_printer'),
     path('api/printer/status/', views.printer_status, name='printer_status'),
+    path('api/receipt/<str:receipt_id>/', views.sale_receipt_detail, name='sale_receipt_detail'),
 ]
 
 

@@ -2,53 +2,245 @@
 
 {% block title %}Transactions - Inventory Management System{% endblock %}
 
+{% block extra_css %}
+<style>
+    .filter-card {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .receipt-id {
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        color: #495057;
+        background: #e3f2fd;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.9em;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    
+    .receipt-id:hover {
+        background: #bbdefb;
+    }
+    
+    .transaction-id {
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        color: #495057;
+        background: #e9ecef;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.9em;
+    }
+    
+    .transaction-table th {
+        background-color: #343a40;
+        color: white;
+        border: none;
+        font-weight: 600;
+        padding: 12px 8px;
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    .transaction-table td {
+        padding: 12px 8px;
+        vertical-align: middle;
+        text-align: center;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .transaction-table tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .sold-price {
+        font-weight: bold;
+        color: #28a745;
+    }
+    
+    .filter-summary {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        border-radius: 6px;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        font-size: 0.9em;
+    }
+    
+    .total-amount {
+        font-weight: bold;
+        color: #28a745;
+        font-size: 1.1em;
+    }
+    
+    @media (max-width: 768px) {
+        .transaction-table {
+            font-size: 0.85em;
+        }
+        
+        .transaction-table th,
+        .transaction-table td {
+            padding: 8px 4px;
+        }
+        
+        .receipt-id, .transaction-id {
+            font-size: 0.8em;
+        }
+        
+        .total-amount {
+            font-size: 1em;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Transaksiya tarixi</h1>
+        <h1><i class="fas fa-exchange-alt"></i> Transaksiya tarixi</h1>
+        <div class="text-muted">
+            <i class="fas fa-list"></i> Jami: {{ total_count }} ta transaksiya
+            {% if total_amount %}
+                <br><span class="total-amount"><i class="fas fa-money-bill-wave"></i> Umumiy summa: {{ total_amount|floatformat:0 }} so'm</span>
+            {% endif %}
+        </div>
     </div>
 
-    <div class="card">
-        <div class="card-header">
-            <h5 class="card-title mb-0">Barcha Transaksiyalar</h5>
+    <!-- Filter Form -->
+    <div class="filter-card">
+        <h5 class="mb-3"><i class="fas fa-filter"></i> Filter va Qidiruv</h5>
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="{{ form.search.id_for_label }}" class="form-label">Qidiruv</label>
+                {{ form.search }}
+                <small class="form-text text-muted">Chek ID, mahsulot, foydalanuvchi</small>
+            </div>
+            
+            <div class="col-md-2">
+                <label for="{{ form.transaction_type.id_for_label }}" class="form-label">Tur</label>
+                {{ form.transaction_type }}
+            </div>
+            
+            <div class="col-md-2">
+                <label for="{{ form.start_date.id_for_label }}" class="form-label">Boshlanish</label>
+                {{ form.start_date }}
+            </div>
+            
+            <div class="col-md-2">
+                <label for="{{ form.end_date.id_for_label }}" class="form-label">Tugash</label>
+                {{ form.end_date }}
+            </div>
+            
+            <div class="col-md-2">
+                <label for="{{ form.user.id_for_label }}" class="form-label">Foydalanuvchi</label>
+                {{ form.user }}
+            </div>
+            
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </form>
+        
+        {% if request.GET %}
+        <div class="mt-3">
+            <a href="{% url 'transaction_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-times"></i> Filterni tozalash
+            </a>
         </div>
-        <div class="card-body">
+        {% endif %}
+    </div>
+
+    <!-- Filter Summary -->
+    {% if form.is_valid and request.GET %}
+    <div class="filter-summary">
+        <i class="fas fa-info-circle"></i> 
+        <strong>Aktiv filterlar:</strong>
+        {% if form.cleaned_data.search %}
+            Qidiruv: "{{ form.cleaned_data.search }}"
+        {% endif %}
+        {% if form.cleaned_data.transaction_type %}
+            | Tur: {{ form.cleaned_data.transaction_type }}
+        {% endif %}
+        {% if form.cleaned_data.start_date %}
+            | Dan: {{ form.cleaned_data.start_date }}
+        {% endif %}
+        {% if form.cleaned_data.end_date %}
+            | Gacha: {{ form.cleaned_data.end_date }}
+        {% endif %}
+        {% if form.cleaned_data.user %}
+            | Foydalanuvchi: {{ form.cleaned_data.user.username }}
+        {% endif %}
+        {% if total_amount %}
+            | <span class="total-amount">Umumiy summa: {{ total_amount|floatformat:0 }} so'm</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Transaksiyalar ro'yxati</h5>
+            {% if page_obj %}
+            <small class="text-muted">
+                {{ page_obj.start_index }}-{{ page_obj.end_index }} / {{ page_obj.paginator.count }}
+            </small>
+            {% endif %}
+        </div>
+        <div class="card-body p-0">
             {% if page_obj %}
             <div class="table-responsive">
-                <table class="table table-striped">
+                <table class="table table-hover transaction-table mb-0">
                     <thead>
                         <tr>
-                            <th>Sana</th>
-                            <th>Maxsulot</th>
-                            <th>Tur</th>
-                            <th>Soni</th>
-                            <th>User</th>
-                            <th>Eslatma</th>
+                            <th style="width: 12%;">Chek/ID</th>
+                            <th style="width: 15%;">Sana</th>
+                            <th style="width: 10%;">Tur</th>
+                            <th style="width: 10%;">Foydalanuvchi</th>
+                            <th style="width: 11%;">Eslatma</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for transaction in page_obj %}
                         <tr>
-                            <td>{{ transaction.timestamp|date:"M d, Y H:i" }}</td>
                             <td>
-                                <a href="{% url 'product_detail' transaction.product.id %}" class="text-decoration-none">
-                                    {{ transaction.product.name }}
-                                </a>
+                                {% if transaction.sale_receipt %}
+                                    <span class="receipt-id" onclick="showReceiptDetails('{{ transaction.sale_receipt.receipt_id }}')" title="Chek tafsilotlarini ko'rish">
+                                        <i class="fas fa-receipt me-1"></i>{{ transaction.sale_receipt.receipt_id }}
+                                    </span>
+                                {% else %}
+                                    <span class="transaction-id">{{ transaction.transaction_id }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div>{{ transaction.timestamp|date:"d.m.Y" }}</div>
+                                <small class="text-muted">{{ transaction.timestamp|date:"H:i" }}</small>
                             </td>
                             <td>
                                 {% if transaction.transaction_type == 'IN' %}
                                 <span class="badge bg-success">
-                                    <i class="fas fa-arrow-up me-1"></i> Stock In
+                                    <i class="fas fa-arrow-up me-1"></i> Kirim
                                 </span>
                                 {% else %}
                                 <span class="badge bg-danger">
-                                    <i class="fas fa-arrow-down me-1"></i> Stock Out
+                                    <i class="fas fa-arrow-down me-1"></i> Chiqim
                                 </span>
                                 {% endif %}
                             </td>
-                            <td>{{ transaction.quantity }}</td>
-                            <td>{{ transaction.user.username }}</td>
-                            <td>{{ transaction.notes|default:"-" }}</td>
+                            <td>
+                                <strong>{{ transaction.user.get_full_name|default:transaction.user.username }}</strong>
+                                <br>
+                                <small class="text-muted">@{{ transaction.user.username }}</small>
+                            </td>
+                            <td class="text-start">
+                                <small>{{ transaction.notes|default:"-"|truncatechars:50 }}</small>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -57,47 +249,363 @@
 
             <!-- Pagination -->
             {% if page_obj.has_other_pages %}
-            <nav aria-label="Transaction pagination">
-                <ul class="pagination justify-content-center">
-                    {% if page_obj.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page=1">First</a>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
-                    </li>
-                    {% endif %}
+            <div class="card-footer">
+                <nav aria-label="Transaction pagination">
+                    <ul class="pagination justify-content-center mb-0">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
 
-                    {% for num in page_obj.paginator.page_range %}
-                    {% if page_obj.number == num %}
-                    <li class="page-item active">
-                        <span class="page-link">{{ num }}</span>
-                    </li>
-                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
-                    </li>
-                    {% endif %}
-                    {% endfor %}
+                        {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
 
-                    {% if page_obj.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </nav>
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
             {% endif %}
             {% else %}
-            <div class="text-center py-4">
-                <i class="fas fa-exchange-alt fa-3x text-muted mb-3"></i>
-                <p class="text-muted">No transactions found.</p>
+            <div class="text-center py-5">
+                <i class="fas fa-exchange-alt fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">Transaksiya topilmadi</h4>
+                <p class="text-muted">Hozircha hech qanday transaksiya mavjud emas yoki filter shartlariga mos keluvchi transaksiya yo'q.</p>
+                {% if request.GET %}
+                <a href="{% url 'transaction_list' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-times"></i> Filterni tozalash
+                </a>
+                {% endif %}
             </div>
             {% endif %}
         </div>
     </div>
 </div>
+
+<!-- Chek tafsilotlari modali -->
+<div class="modal fade" id="receiptDetailsModal" tabindex="-1" aria-labelledby="receiptDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="receiptDetailsModalLabel">
+                    <i class="fas fa-receipt me-2"></i>Chek tafsilotlari
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="receiptDetailsBody">
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+                    <p class="mt-2">Yuklanmoqda...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Yopish</button>
+                <button type="button" class="btn btn-primary" id="printReceiptBtn" style="display: none;">
+                    <i class="fas fa-print me-2"></i>Chop etish
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-submit form on select change
+    const selectElements = document.querySelectorAll('select[name="transaction_type"], select[name="user"]');
+    selectElements.forEach(select => {
+        select.addEventListener('change', function() {
+            this.form.submit();
+        });
+    });
+    
+    // Auto-submit form on date change
+    const dateElements = document.querySelectorAll('input[type="date"]');
+    dateElements.forEach(dateInput => {
+        dateInput.addEventListener('change', function() {
+            this.form.submit();
+        });
+    });
+});
+
+// CSRF token olish
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+const csrftoken = getCookie('csrftoken');
+
+// Chek tafsilotlarini ko'rsatish
+function showReceiptDetails(receiptId) {
+    const modal = new bootstrap.Modal(document.getElementById('receiptDetailsModal'));
+    const modalBody = document.getElementById('receiptDetailsBody');
+    const printBtn = document.getElementById('printReceiptBtn');
+    
+    // Loading holatini ko'rsatish
+    modalBody.innerHTML = `
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+            <p class="mt-2">Yuklanmoqda...</p>
+        </div>
+    `;
+    printBtn.style.display = 'none';
+    
+    modal.show();
+    
+    // Chek ma'lumotlarini olish
+    fetch(`/api/receipt/${receiptId}/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': csrftoken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayReceiptDetails(data.receipt);
+            printBtn.style.display = 'inline-block';
+            
+            // Print tugmasiga event listener qo'shish
+            printBtn.onclick = function() {
+                printReceipt(data.receipt);
+            };
+        } else {
+            modalBody.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    ${data.error || 'Chek ma\'lumotlarini yuklashda xatolik yuz berdi.'}
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        modalBody.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Server bilan bog'lanishda xatolik yuz berdi.
+            </div>
+        `;
+    });
+}
+
+// Chek tafsilotlarini ko'rsatish
+function displayReceiptDetails(receipt) {
+    const modalBody = document.getElementById('receiptDetailsBody');
+    
+    let html = `
+        <div class="receipt-container">
+            <!-- Chek boshi -->
+            <div class="receipt-header text-center mb-4 p-3 bg-light rounded">
+                <h4 class="mb-2">
+                    <i class="fas fa-store me-2"></i>SOTUV CHEKI
+                </h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Chek №:</strong> ${receipt.receipt_id}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Sana:</strong> ${receipt.date} ${receipt.time}
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <strong>Kassir:</strong> ${receipt.cashier}
+                </div>
+            </div>
+            
+            <!-- Mahsulotlar ro'yxati -->
+            <div class="receipt-items mb-4">
+                <h6 class="mb-3">
+                    <i class="fas fa-list me-2"></i>Sotilgan mahsulotlar:
+                </h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Mahsulot</th>
+                                <th>Kategoriya</th>
+                                <th>Miqdor</th>
+                                <th>Narx</th>
+                                <th>Jami</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+    `;
+    
+    receipt.items.forEach(item => {
+        html += `
+            <tr>
+                <td><strong>${item.product_name}</strong></td>
+                <td><span class="badge bg-secondary">${item.category}</span></td>
+                <td>${item.quantity} ${item.unit_type}</td>
+                <td>${item.sold_price.toFixed(0)} so'm</td>
+                <td><strong>${item.total_amount.toFixed(0)} so'm</strong></td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th colspan="3">JAMI:</th>
+                                <th>${receipt.total_items} ta mahsulot</th>
+                                <th><strong>${receipt.total_amount.toFixed(0)} so'm</strong></th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Qo'shimcha ma'lumotlar -->
+            <div class="receipt-footer">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-info-circle me-2"></i>Umumiy ma'lumot
+                                </h6>
+                                <p class="card-text">
+                                    <strong>Jami mahsulotlar:</strong> ${receipt.total_items} ta<br>
+                                    <strong>Umumiy summa:</strong> ${receipt.total_amount.toFixed(0)} so'm
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-clock me-2"></i>Vaqt ma'lumotlari
+                                </h6>
+                                <p class="card-text">
+                                    <strong>Sotuv sanasi:</strong> ${receipt.date}<br>
+                                    <strong>Sotuv vaqti:</strong> ${receipt.time}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                ${receipt.notes ? `
+                <div class="mt-3">
+                    <div class="alert alert-info">
+                        <strong><i class="fas fa-sticky-note me-2"></i>Eslatma:</strong> ${receipt.notes}
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    modalBody.innerHTML = html;
+}
+
+// Chekni chop etish
+function printReceipt(receipt) {
+    const printWindow = window.open('', '_blank');
+    const printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Chek #${receipt.receipt_id}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .receipt { max-width: 400px; margin: 0 auto; }
+                .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
+                .items { margin: 15px 0; }
+                .item { display: flex; justify-content: space-between; margin: 5px 0; }
+                .total { border-top: 2px solid #000; padding-top: 10px; margin-top: 15px; font-weight: bold; }
+                .footer { text-align: center; margin-top: 20px; font-size: 12px; }
+                @media print {
+                    body { margin: 0; }
+                    .no-print { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="receipt">
+                <div class="header">
+                    <h2>SOTUV CHEKI</h2>
+                    <p>Chek №: ${receipt.receipt_id}</p>
+                    <p>${receipt.date} ${receipt.time}</p>
+                    <p>Kassir: ${receipt.cashier}</p>
+                </div>
+                
+                <div class="items">
+                    ${receipt.items.map(item => `
+                        <div class="item">
+                            <span>${item.product_name}</span>
+                        </div>
+                        <div class="item">
+                            <span>${item.quantity} ${item.unit_type} x ${item.sold_price.toFixed(0)}</span>
+                            <span>${item.total.toFixed(0)} so'm</span>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="total">
+                    <div class="item">
+                        <span>JAMI:</span>
+                        <span>${receipt.total_amount.toFixed(0)} so'm</span>
+                    </div>
+                </div>
+                
+                <div class="footer">
+                    <p>Rahmat! Yana tashrif buyuring!</p>
+                </div>
+            </div>
+            
+            <div class="no-print" style="text-align: center; margin-top: 20px;">
+                <button onclick="window.print()">Chop etish</button>
+                <button onclick="window.close()">Yopish</button>
+            </div>
+        </body>
+        </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+}
+</script>
 {% endblock %}

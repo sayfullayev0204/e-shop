@@ -3,7 +3,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django import forms
 from .models import Product, Transaction, Category, CartItem
 from django.core.exceptions import ValidationError
-
+from django.contrib.auth.models import User
 
 class CustomLoginForm(AuthenticationForm):
     username = forms.CharField(widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Username'}))
@@ -170,3 +170,49 @@ class UserRegisterForm(forms.Form):
     last_name = forms.CharField(max_length=30, required=True, label="Familiya")
     username = forms.CharField(max_length=150, required=True, label="Foydalanuvchi nomi")
     password = forms.CharField(widget=forms.PasswordInput, required=True, label="Parol")
+
+
+
+class TransactionFilterForm(forms.Form):
+    TRANSACTION_TYPE_CHOICES = [
+        ('', 'Barcha turlar'),
+        ('IN', 'Stock In'),
+        ('OUT', 'Stock Out'),
+    ]
+    
+    search = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Transaction ID, mahsulot nomi yoki foydalanuvchi...'
+        })
+    )
+    
+    transaction_type = forms.ChoiceField(
+        choices=TRANSACTION_TYPE_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    
+    start_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        })
+    )
+    
+    end_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        })
+    )
+    
+    user = forms.ModelChoiceField(
+        queryset=User.objects.all(),
+        required=False,
+        empty_label="Barcha foydalanuvchilar",
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )

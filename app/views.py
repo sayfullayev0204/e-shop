@@ -11,7 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 import datetime
 from .receipt_printer import XPrinterManager
-from .models import Product, Category, Transaction, TelegramUser, Statistics, Cart, CartItem
+from .models import Product, Category, Transaction, TelegramUser, Statistics, Cart, CartItem, SaleReceipt
 from .forms import (
     CustomLoginForm, ProductForm, CategoryForm, 
     TransactionForm, StockUpdateForm, ProductSearchForm
@@ -116,7 +116,6 @@ def product_list(request):
     return render(request, 'inventory_app/product_list.html', context)
 
 
-@login_required
 def product_detail(request, pk):
     product = get_object_or_404(Product.objects.select_related('category'), pk=pk)
     
@@ -415,19 +414,60 @@ def category_delete(request, pk):
     
     return render(request, 'inventory_app/category_confirm_delete.html', {'category': category})
 
-
+from .forms import TransactionFilterForm
+from django.db.models import Q
+# Transaction list view ni yangilash
 @login_required
 @user_passes_test(lambda u: u.is_staff)
 def transaction_list(request):
+    form = TransactionFilterForm(request.GET)
     transactions = Transaction.objects.select_related('product', 'user').order_by('-timestamp')
+    
+    if form.is_valid():
+        search = form.cleaned_data.get('search')
+        transaction_type = form.cleaned_data.get('transaction_type')
+        start_date = form.cleaned_data.get('start_date')
+        end_date = form.cleaned_data.get('end_date')
+        user = form.cleaned_data.get('user')
+        
+        if search:
+            transactions = transactions.filter(
+                Q(transaction_id__icontains=search) |
+                Q(product__name__icontains=search) |
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search) |
+                Q(notes__icontains=search)
+            )
+        
+        if transaction_type:
+            transactions = transactions.filter(transaction_type=transaction_type)
+        
+        if start_date:
+            transactions = transactions.filter(timestamp__date__gte=start_date)
+        
+        if end_date:
+            transactions = transactions.filter(timestamp__date__lte=end_date)
+        
+        if user:
+            transactions = transactions.filter(user=user)
+    
+    # Calculate total amount for OUT transactions
+    total_amount = transactions.filter(transaction_type='OUT').aggregate(
+        total=Sum(models.F('quantity') * models.F('sold_price'))
+    )['total'] or 0
     
     # Pagination
     paginator = Paginator(transactions, 20)  # Show 20 transactions per page
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    return render(request, 'inventory_app/transaction_list.html', {'page_obj': page_obj})
-
+    return render(request, 'inventory_app/transaction_list.html', {
+        'page_obj': page_obj,
+        'form': form,
+        'total_count': transactions.count(),
+        'total_amount': total_amount  # Pass total_amount to template
+    })
 
 @login_required
 @user_passes_test(lambda u: u.is_staff)
@@ -790,6 +830,8 @@ def cart_remove(request, cart_item_id):
     }, status=405)
 
 
+# views.py dagi cart_confirm funksiyasini yangilash
+
 @login_required
 def cart_confirm(request):
     if request.method == 'POST':
@@ -803,7 +845,7 @@ def cart_confirm(request):
         total_revenue = 0
         receipt_items = []
 
-        # Har bir mahsulotni tekshirish va tranzaksiya yaratish
+        # Birinchi navbatda barcha mahsulotlarni tekshirish
         for cart_item in cart_items:
             product = cart_item.product
             quantity = cart_item.quantity
@@ -815,18 +857,31 @@ def cart_confirm(request):
                     'error': f'{product.name} uchun zaxirada yetarli mahsulot yo\'q!'
                 })
 
+        # Sotuv chekini yaratish
+        sale_receipt = SaleReceipt.objects.create(
+            user=request.user,
+            notes='Savatdan tasdiqlangan sotuv'
+        )
+
+        # Har bir mahsulot uchun tranzaksiya yaratish
+        for cart_item in cart_items:
+            product = cart_item.product
+            quantity = cart_item.quantity
+            sold_price = cart_item.sold_price
+
             total_quantity += quantity
             item_total = quantity * sold_price
             total_revenue += item_total
 
-            # Tranzaksiya yaratish
+            # Tranzaksiya yaratish (sale_receipt bilan bog'langan)
             Transaction.objects.create(
+                sale_receipt=sale_receipt,
                 product=product,
                 user=request.user,
                 quantity=quantity,
                 transaction_type='OUT',
                 sold_price=sold_price,
-                notes='Savatdan tasdiqlangan sotuv'
+                notes=f'Chek #{sale_receipt.receipt_id} orqali sotuv'
             )
 
             # Zaxirani yangilash
@@ -840,6 +895,11 @@ def cart_confirm(request):
                 'price': float(sold_price),
                 'total': float(item_total)
             })
+
+        # Sotuv cheki ma'lumotlarini yangilash
+        sale_receipt.total_amount = total_revenue
+        sale_receipt.total_items = len(cart_items)
+        sale_receipt.save()
 
         # Statistikani yangilash
         today = timezone.now().date()
@@ -855,8 +915,13 @@ def cart_confirm(request):
         response_data = {
             'success': True,
             'cart_count': cart_count,
-            'message': 'Savat tasdiqlandi va zaxira yangilandi!',
+            'message': f'Sotuv tasdiqlandi! Chek #{sale_receipt.receipt_id}',
+            'receipt_id': sale_receipt.receipt_id,
             'receipt': {
+                'receipt_id': sale_receipt.receipt_id,
+                'date': sale_receipt.timestamp.strftime('%d.%m.%Y'),
+                'time': sale_receipt.timestamp.strftime('%H:%M:%S'),
+                'cashier': request.user.get_full_name() or request.user.username,
                 'items': receipt_items,
                 'total': float(total_revenue)
             }
@@ -866,6 +931,39 @@ def cart_confirm(request):
 
     return JsonResponse({'success': False, 'error': 'Faqat POST so\'rovlari qabul qilinadi'})
 
+
+# Yangi view: Chek tafsilotlarini ko'rish
+@login_required
+def sale_receipt_detail(request, receipt_id):
+    try:
+        sale_receipt = SaleReceipt.objects.get(receipt_id=receipt_id)
+        transactions = sale_receipt.transactions.all()
+        
+        receipt_data = {
+            'receipt_id': sale_receipt.receipt_id,
+            'date': sale_receipt.timestamp.strftime('%d.%m.%Y'),
+            'time': sale_receipt.timestamp.strftime('%H:%M:%S'),
+            'cashier': sale_receipt.user.get_full_name() or sale_receipt.user.username,
+            'total_amount': float(sale_receipt.total_amount),
+            'total_items': sale_receipt.total_items,
+            'notes': sale_receipt.notes,
+            'items': []
+        }
+        
+        for transaction in transactions:
+            receipt_data['items'].append({
+                'product_name': transaction.product.name,
+                'category': transaction.product.category.name,
+                'quantity': float(transaction.quantity),
+                'unit_type': transaction.product.get_unit_type_display(),
+                'sold_price': float(transaction.sold_price),
+                'total': float(transaction.quantity * transaction.sold_price)
+            })
+        
+        return JsonResponse({'success': True, 'receipt': receipt_data})
+        
+    except SaleReceipt.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Chek topilmadi'})
 
 
 @login_required

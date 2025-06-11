@@ -16,11 +16,11 @@ def update_statistics(sender, instance, created, **kwargs):
         # Update statistics
         stats.total_sales += instance.quantity
         
-        # Use sale_price from transaction instead of product.price
-        if instance.sale_price:
-            stats.total_revenue += instance.quantity * instance.sale_price
+        # Use sold_price from transaction instead of sale_price
+        if instance.sold_price:
+            stats.total_revenue += instance.quantity * instance.sold_price
         else:
-            # Fallback to min_sale_price if sale_price is not set
+            # Fallback to min_sale_price if sold_price is not set
             stats.total_revenue += instance.quantity * instance.product.min_sale_price
             
         stats.save()

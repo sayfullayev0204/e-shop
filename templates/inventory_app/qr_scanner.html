@@ -315,6 +315,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     const csrftoken = getCookie('csrftoken');
 
+    // Scanned products array
+    let scannedProducts = [];
+
     // Tab o'zgartirish
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
@@ -323,22 +326,16 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', () => {
             const tabId = button.dataset.tab;
             
-            // Barcha tab buttonlardan active klassini olib tashlash
             tabButtons.forEach(btn => btn.classList.remove('active'));
-            
-            // Barcha tab contentlardan active klassini olib tashlash
             tabContents.forEach(content => content.classList.remove('active'));
             
-            // Tanlangan tab va contentga active klassini qo'shish
             button.classList.add('active');
             document.getElementById(tabId).classList.add('active');
             
-            // Agar kamera tabi tanlangan bo'lsa va skaner ishlayotgan bo'lsa, to'xtatish
             if (tabId !== 'camera-tab' && codeReader && codeReader.isScanning) {
                 stopScanner();
             }
             
-            // USB skaner inputiga focus qilish
             if (tabId === 'usb-tab') {
                 document.getElementById('usb-scanner-input').focus();
             }
@@ -365,7 +362,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 
-                // Orqa kamerani tanlash (ko'pincha mobil qurilmalarda)
                 selectedDeviceId = videoInputDevices[0].deviceId;
                 for (const device of videoInputDevices) {
                     if (device.label.toLowerCase().includes('back') || 
@@ -392,12 +388,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         codeReader.decodeFromVideoDevice(selectedDeviceId, 'scanner-video', (result, err) => {
             if (result) {
-                // QR kod natijasini olish
                 const qrCodeValue = result.getText();
                 processQRCode(qrCodeValue);
-                
-                // Skanerdan to'xtatish (faqat bir marta skanerlash uchun)
-                stopScanner();
             }
             
             if (err && !(err instanceof ZXing.NotFoundException)) {
@@ -440,20 +432,17 @@ document.addEventListener('DOMContentLoaded', function() {
     function processQRCode(qrCodeValue) {
         scannerStatus.innerHTML = `<span class="text-info">QR kod o'qildi: ${qrCodeValue}</span>`;
         
-        // QR kod formatini aniqlash va ID ni olish
         let productId = null;
         
-        // URL formatidagi QR kodlarni tekshirish
         if (qrCodeValue.includes('/products/')) {
             const urlParts = qrCodeValue.split('/');
             for (let i = 0; i < urlParts.length; i++) {
                 if (urlParts[i] === 'products' && i + 1 < urlParts.length) {
-                    productId = urlParts[i + 1].replace(/\D/g, ''); // Faqat raqamlarni olish
+                    productId = urlParts[i + 1].replace(/\D/g, '');
                     break;
                 }
             }
         } else {
-            // Agar oddiy raqam bo'lsa
             productId = qrCodeValue.replace(/\D/g, '');
         }
         
@@ -462,7 +451,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Mahsulot ma'lumotlarini olish
         fetchProductDetails(productId);
     }
     
@@ -478,18 +466,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 return response.json();
             })
             .then(product => {
-                displayProductDetails(product);
+                // Add to scanned products array if not already present
+                if (!scannedProducts.some(p => p.id === product.id)) {
+                    scannedProducts.push(product);
+                }
+                displayProductDetails();
+                // Restart scanner for continuous scanning
+                if (document.querySelector('.tab-button[data-tab="camera-tab"]').classList.contains('active')) {
+                    startScanner();
+                }
             })
             .catch(error => {
                 scannerStatus.innerHTML = `<span class="text-danger">Xatolik: ${error.message}</span>`;
-                scannerResult.style.display = 'none';
             });
     }
     
     // Narxni tekshirish funksiyasi
-    function validatePrice(price, minPrice) {
-        const priceError = document.getElementById('price-error');
-        if (parseFloat(price) <= parseFloat(minPrice)) {
+    function validatePrice(price, minPrice, errorElementId) {
+        const priceError = document.getElementById(errorElementId);
+        if (parseFloat(price) < parseFloat(minPrice)) {
             priceError.textContent = "Bu narxda sotolmaysiz! Yuqoriroq narx kiriting.";
             priceError.style.display = 'block';
             return false;
@@ -500,61 +495,67 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Mahsulot ma'lumotlarini ko'rsatish
-    function displayProductDetails(product) {
+    function displayProductDetails() {
         scannerResult.style.display = 'block';
+        productDetails.innerHTML = '';
         
-        const imageUrl = product.image_url || '/static/inventory_app/img/no-image.png';
+        if (scannedProducts.length === 0) {
+            productDetails.innerHTML = '<p class="text-muted">Hozircha skanerlangan mahsulotlar yo\'q.</p>';
+            return;
+        }
         
-        productDetails.innerHTML = `
-            <div class="product-card">
-                <img src="${imageUrl}" alt="${product.name}" class="product-image">
-                <div class="product-info">
-                    <div class="product-name">${product.name}</div>
-                    <div class="product-price">${product.sale_price} so'm (tavsiya etilgan narx)</div>
-                    <div class="product-stock">Zaxira: ${product.stock} ${product.unit_type === 'piece' ? 'dona' : 'kg'}</div>
-                    
-                    <div class="product-actions">
-                        <div class="input-group quantity-input">
-                            <span class="input-group-text">Soni</span>
-                            <input type="number" id="product-quantity" class="form-control" value="1" min="1" max="${product.stock}">
-                        </div>
+        scannedProducts.forEach((product, index) => {
+            const imageUrl = product.image_url || '/static/inventory_app/img/no-image.png';
+            const productHtml = `
+                <div class="product-card" id="product-card-${product.id}">
+                    <img src="${imageUrl}" alt="${product.name}" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">${product.name}</div>
+                        <div class="product-price">${product.sale_price} so'm (tavsiya etilgan narx)</div>
+                        <div class="product-stock">Zaxira: ${product.stock} ${product.unit_type === 'piece' ? 'dona' : 'kg'}</div>
                         
-                        <div class="input-group">
-                            <span class="input-group-text">Narx</span>
-                            <input type="number" id="product-price" class="form-control" value="${product.sale_price}" min="0" step="500">
-                            <span class="input-group-text">so'm</span>
+                        <div class="product-actions">
+                            <div class="input-group quantity-input">
+                                <span class="input-group-text">Soni</span>
+                                <input type="number" id="product-quantity-${product.id}" class="form-control" value="1" min="1" max="${product.stock}">
+                            </div>
+                            
+                            <div class="input-group price-input">
+                                <span class="input-group-text">Narx</span>
+                                <input type="number" id="product-price-${product.id}" class="form-control" value="${product.sale_price}" min="0" step="500">
+                            </div>
                         </div>
+                        <div class="price-error" id="price-error-${product.id}"></div>
                     </div>
-                    <div class="price-error" id="price-error"></div>
                 </div>
-            </div>
+                
+                <button id="add-to-cart-${product.id}" class="btn btn-success btn-lg w-100 mb-3" data-product-id="${product.id}" data-min-price="${product.min_sale_price}">
+                    <i class="fas fa-cart-plus"></i> Savatga qo'shish
+                </button>
+            `;
+            productDetails.insertAdjacentHTML('beforeend', productHtml);
             
-            <button id="add-to-cart" class="btn btn-success btn-lg w-100" data-product-id="${product.id}" data-min-price="${product.min_sale_price}">
-                <i class="fas fa-cart-plus"></i> Savatga qo'shish
-            </button>
-        `;
-        
-        // Narx validatsiyasi uchun event listener
-        const priceInput = document.getElementById('product-price');
-        const minPrice = product.min_sale_price;
-        
-        priceInput.addEventListener('input', function() {
-            validatePrice(this.value, minPrice);
-        });
-        
-        // Savatga qo'shish tugmasiga hodisa qo'shish
-        document.getElementById('add-to-cart').addEventListener('click', function() {
-            const productId = this.dataset.productId;
-            const minPrice = this.dataset.minPrice;
-            const quantity = parseFloat(document.getElementById('product-quantity').value);
-            const soldPrice = parseFloat(document.getElementById('product-price').value);
+            // Narx validatsiyasi uchun event listener
+            const priceInput = document.getElementById(`product-price-${product.id}`);
+            const minPrice = product.min_sale_price;
             
-            // Narxni tekshirish
-            if (!validatePrice(soldPrice, minPrice)) {
-                return;
-            }
+            priceInput.addEventListener('input', function() {
+                validatePrice(this.value, minPrice, `price-error-${product.id}`);
+            });
             
-            addToCart(productId, quantity, soldPrice);
+            // Savatga qo'shish tugmasiga hodisa qo'shish
+            document.getElementById(`add-to-cart-${product.id}`).addEventListener('click', function() {
+                const productId = this.dataset.productId;
+                const minPrice = this.dataset.minPrice;
+                const quantity = parseFloat(document.getElementById(`product-quantity-${productId}`).value);
+                const soldPrice = parseFloat(document.getElementById(`product-price-${productId}`).value);
+                
+                if (!validatePrice(soldPrice, minPrice, `price-error-${productId}`)) {
+                    return;
+                }
+                
+                addToCart(productId, quantity, soldPrice, index);
+            });
         });
         
         // USB skaner inputiga qayta focus qilish
@@ -566,7 +567,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Savatga qo'shish
-    function addToCart(productId, quantity, soldPrice) {
+    function addToCart(productId, quantity, soldPrice, productIndex) {
         if (!productId || quantity <= 0 || soldPrice <= 0) {
             scannerStatus.innerHTML = '<span class="text-danger">Noto\'g\'ri ma\'lumotlar!</span>';
             return;
@@ -588,9 +589,12 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 scannerStatus.innerHTML = '<span class="text-success">Mahsulot savatga qo\'shildi!</span>';
-                scannerResult.style.display = 'none';
                 
-                // Savat sonini yangilash
+                // Remove the product from the scanned list and update display
+                scannedProducts.splice(productIndex, 1);
+                displayProductDetails();
+                
+                // Update cart count
                 const cartCountBadge = document.getElementById('cart-count');
                 if (cartCountBadge) {
                     cartCountBadge.textContent = data.cart_count;
@@ -620,7 +624,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('usb-scanner-input').focus();
     });
     
-    // Sahifa fokusdan chiqqanda va qayta fokusga qaytganda USB inputga focus qilish
     window.addEventListener('focus', function() {
         if (document.querySelector('.tab-button[data-tab="usb-tab"]').classList.contains('active')) {
             document.getElementById('usb-scanner-input').focus();

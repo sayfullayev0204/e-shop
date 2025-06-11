@@ -5,7 +5,7 @@
 {% block extra_css %}
 <style>
     .cart-header {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        background: linear-gradient(135deg, #007bff 0%, #28a745 100%);
         color: white;
         padding: 20px;
         border-radius: 10px;
@@ -21,7 +21,7 @@
     }
     
     .cart-table th {
-        background-color: var(--dark-color);
+        background-color: #343a40;
         color: white;
         font-weight: 600;
         padding: 15px 10px;
@@ -61,45 +61,97 @@
     
     .product-name {
         font-weight: 600;
-        color: var(--dark-color);
+        color: #343a40;
         margin-bottom: 3px;
     }
     
-    .product-category {
-        font-size: 0.85em;
-        color: #6c757d;
+    /* YANGILANGAN: Miqdor input styling */
+    .quantity-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        width: 100%;
     }
     
-    .quantity-input, .price-input {
-        width: 80px;
-        padding: 5px 8px;
-        border: 1px solid #ddd;
-        border-radius: 5px;
+    .quantity-input {
+        width: 90px;
+        padding: 10px 8px;
+        border: 3px solid #28a745;
+        border-radius: 8px;
         text-align: center;
-        font-size: 0.9em;
+        font-size: 1.1em;
+        font-weight: bold;
+        background-color: #f8fff8;
+        color: #333;
+        transition: all 0.2s ease;
+        display: block;
+        margin: 0 auto;
     }
     
-    .quantity-input:focus, .price-input:focus {
+    .quantity-input:focus {
         outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        border-color: #20c997;
+        box-shadow: 0 0 10px rgba(40, 167, 69, 0.4);
+        background-color: #f0fff0;
+        transform: scale(1.05);
+    }
+    
+    .quantity-input:hover {
+        border-color: #218838;
+        background-color: #f0fff0;
+    }
+    
+    .price-input {
+        width: 110px;
+        padding: 10px 8px;
+        border: 3px solid #007bff;
+        border-radius: 8px;
+        text-align: center;
+        font-size: 1.1em;
+        font-weight: bold;
+        background-color: #f8f9ff;
+        color: #333;
+        transition: all 0.2s ease;
+        display: block;
+        margin: 0 auto;
+    }
+    
+    .price-input:focus {
+        outline: none;
+        border-color: #0056b3;
+        box-shadow: 0 0 10px rgba(0, 123, 255, 0.4);
+        background-color: #f0f8ff;
+        transform: scale(1.05);
+    }
+    
+    .price-input:hover {
+        border-color: #0056b3;
+        background-color: #f0f8ff;
     }
     
     .btn-sm {
-        padding: 5px 10px;
-        font-size: 0.8em;
+        padding: 8px 12px;
+        font-size: 0.85em;
         margin: 2px;
+        border-radius: 6px;
     }
     
     .stock-info {
-        font-size: 0.75em;
+        font-size: 0.8em;
         color: #6c757d;
+        margin-top: 3px;
+        font-weight: 500;
     }
     
     .item-total {
         font-weight: bold;
-        color: var(--primary-color);
-        font-size: 1em;
+        color: #007bff;
+        font-size: 1.1em;
+        padding: 12px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
     }
     
     .cart-summary {
@@ -114,8 +166,12 @@
     .grand-total {
         font-size: 1.5em;
         font-weight: bold;
-        color: var(--dark-color);
+        color: #343a40;
         margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border: 2px solid #28a745;
     }
     
     .empty-cart {
@@ -196,6 +252,20 @@
         background-color: #dc3545;
     }
     
+    /* Auto-save indicator */
+    .auto-save-indicator {
+        position: fixed;
+        top: 50%;
+        right: 20px;
+        transform: translateY(-50%);
+        background-color: #28a745;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
+        display: none;
+        z-index: 1000;
+    }
+    
     @media (max-width: 768px) {
         .cart-table {
             font-size: 0.85em;
@@ -207,13 +277,14 @@
         }
         
         .quantity-input, .price-input {
-            width: 60px;
-            font-size: 0.8em;
+            width: 70px;
+            font-size: 0.9em;
+            padding: 6px 4px;
         }
         
         .btn-sm {
-            padding: 3px 6px;
-            font-size: 0.7em;
+            padding: 4px 8px;
+            font-size: 0.75em;
         }
         
         .product-image {
@@ -226,6 +297,11 @@
 
 {% block content %}
 <div class="container-fluid">
+    <!-- Auto-save indicator -->
+    <div id="auto-save-indicator" class="auto-save-indicator">
+        <i class="fas fa-check"></i> Avtomatik saqlandi
+    </div>
+
     <!-- Printer Status Indicator -->
     <div id="printer-status" class="printer-status printer-disconnected" style="display: none;">
         <i class="fas fa-print"></i> <span id="printer-status-text">Printer tekshirilmoqda...</span>
@@ -330,47 +406,54 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="badge badge-category">{{ item.product.category.name }}</span>
+                                <span class="badge bg-secondary">{{ item.product.category.name }}</span>
                             </td>
                             <td>
                                 <strong>{{ item.product.stock|floatformat:2 }}</strong>
                                 <div class="stock-info">{{ item.product.get_unit_type_display }}</div>
                             </td>
                             <td>
-                                <input type="number" 
-                                       id="quantity-{{ item.id }}" 
-                                       class="quantity-input" 
-                                       value="{{ item.quantity }}" 
-                                       min="1" 
-                                       step="1"
-                                       max="{{ item.product.stock }}"
-                                       data-item-id="{{ item.id }}">
-                                <div class="stock-info">{{ item.product.get_unit_type_display }}</div>
+                                <div class="quantity-container">
+                                    <input type="number" 
+                                           id="quantity-{{ item.id }}" 
+                                           class="quantity-input" 
+                                           value="{{ item.quantity }}" 
+                                           min="1" 
+                                           step="1"
+                                           max="{{ item.product.stock }}"
+                                           data-item-id="{{ item.id }}">
+                                    <div class="stock-info">{{ item.product.get_unit_type_display }}</div>
+                                    <small class="text-muted">Max: {{ item.product.stock|floatformat:2 }}</small>
+                                </div>
                             </td>
                             <td>
-                                <input type="number" 
-                                       id="price-{{ item.id }}" 
-                                       class="price-input" 
-                                       value="{{ item.sold_price }}" 
-                                       min="0" 
-                                       step="500"
-                                       data-item-id="{{ item.id }}">
-                                <div class="stock-info">so'm</div>
-                                <div class="text-danger" id="price-error-{{ item.id }}" style="display: none; font-size: 0.8em;"></div>
+                                <div class="d-flex flex-column align-items-center">
+                                    <input type="number" 
+                                           id="price-{{ item.id }}" 
+                                           class="price-input" 
+                                           value="{{ item.sold_price|floatformat:0 }}" 
+                                           min="0" 
+                                           step="500"
+                                           data-item-id="{{ item.id }}">
+                                    <div class="stock-info">so'm</div>
+                                    <div class="text-danger" id="price-error-{{ item.id }}" style="display: none; font-size: 0.8em;"></div>
+                                </div>
                             </td>
                             <td>
                                 <div class="item-total" id="total-{{ item.id }}">
-                                    {{ item.quantity|floatformat:2|floatformat:0 }}
+                                    <div class="text-muted small">{{ item.quantity|floatformat:2 }} × {{ item.sold_price|floatformat:0 }}</div>
+                                    <div class="fw-bold">{{ item.get_total|floatformat:0 }} so'm</div>
                                 </div>
-                                <div class="stock-info">so'm</div>
                             </td>
                             <td>
-                                <button class="btn btn-primary btn-sm update-item" data-item-id="{{ item.id }}">
-                                    <i class="fas fa-save"></i>
-                                </button>
-                                <button class="btn btn-danger btn-sm remove-item" data-item-id="{{ item.id }}">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                                <div class="d-flex flex-column gap-1">
+                                    <button class="btn btn-primary btn-sm update-item" data-item-id="{{ item.id }}">
+                                        <i class="fas fa-save"></i> Saqlash
+                                    </button>
+                                    <button class="btn btn-danger btn-sm remove-item" data-item-id="{{ item.id }}">
+                                        <i class="fas fa-trash"></i> O'chirish
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -417,6 +500,15 @@ document.addEventListener('DOMContentLoaded', function() {
         return cookieValue;
     }
     const csrftoken = getCookie('csrftoken');
+
+    // Auto-save indicator ko'rsatish
+    function showAutoSaveIndicator() {
+        const indicator = document.getElementById('auto-save-indicator');
+        indicator.style.display = 'block';
+        setTimeout(() => {
+            indicator.style.display = 'none';
+        }, 2000);
+    }
 
     // Printer holatini tekshirish
     function checkPrinterStatus() {
@@ -513,7 +605,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const minPrice = parseFloat(row.dataset.minPrice);
         const errorDiv = document.getElementById(`price-error-${itemId}`);
         
-        if (price <= minPrice) {
+        if (price < minPrice) {
             errorDiv.textContent = "Bu narxda sotolmaysiz! Yuqoriroq narx kiriting.";
             errorDiv.style.display = 'block';
             return false;
@@ -534,7 +626,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const price = parseFloat(priceInput.value) || 0;
             const total = quantity * price;
             
-            totalDiv.textContent = total.toFixed(0);
+            // Miqdor va narxni ko'rsatish bilan birga jami summani ko'rsatish
+            totalDiv.innerHTML = `
+                <div class="text-muted small">${quantity.toFixed(2)} × ${price.toFixed(0)}</div>
+                <div class="fw-bold">${total.toFixed(0)} so'm</div>
+            `;
             calculateGrandTotal();
             
             // Narxni tekshirish
@@ -572,13 +668,82 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Input o'zgarishlarini kuzatish
+    // Input o'zgarishlarini kuzatish va avtomatik saqlash
+    let autoSaveTimeout;
+    
     document.addEventListener('input', function(e) {
-        if (e.target.classList.contains('quantity-input') || e.target.classList.contains('price-input')) {
+        if (e.target.classList.contains('quantity-input')) {
+            const itemId = e.target.dataset.itemId;
+            const quantity = parseFloat(e.target.value) || 0;
+            const maxStock = parseFloat(e.target.getAttribute('max'));
+            
+            // Maksimal zaxiradan oshmasligi uchun tekshirish
+            if (quantity > maxStock) {
+                e.target.value = maxStock;
+                showAlert(`Maksimal miqdor: ${maxStock}`, 'warning');
+            }
+            
+            // Jami summani yangilash
+            calculateItemTotal(itemId);
+            
+            // Avtomatik saqlash (2 soniya kutish)
+            clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = setTimeout(() => {
+                autoUpdateItem(itemId);
+            }, 2000);
+        }
+        
+        if (e.target.classList.contains('price-input')) {
             const itemId = e.target.dataset.itemId;
             calculateItemTotal(itemId);
+            
+            // Avtomatik saqlash (2 soniya kutish)
+            clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = setTimeout(() => {
+                autoUpdateItem(itemId);
+            }, 2000);
         }
     });
+
+    // Avtomatik yangilash funksiyasi
+    function autoUpdateItem(itemId) {
+        const quantityInput = document.getElementById(`quantity-${itemId}`);
+        const priceInput = document.getElementById(`price-${itemId}`);
+        
+        const quantity = parseFloat(quantityInput.value);
+        const soldPrice = parseFloat(priceInput.value);
+        
+        if (!quantity || quantity <= 0 || !soldPrice || soldPrice <= 0) {
+            return;
+        }
+        
+        // Narxni tekshirish
+        if (!validatePrice(itemId, soldPrice)) {
+            return;
+        }
+        
+        fetch(`/api/cart/update/${itemId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                quantity: quantity,
+                sold_price: soldPrice
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAutoSaveIndicator();
+                calculateItemTotal(itemId);
+            }
+        })
+        .catch(error => {
+            console.error('Auto-save error:', error);
+        });
+    }
 
     // Mahsulotni yangilash
     document.addEventListener('click', function(e) {
@@ -636,7 +801,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .finally(() => {
                 button.disabled = false;
-                button.innerHTML = '<i class="fas fa-save"></i>';
+                button.innerHTML = '<i class="fas fa-save"></i> Saqlash';
             });
         }
     });
@@ -674,14 +839,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     } else {
                         showAlert(data.error || 'Xatolik yuz berdi!', 'danger');
                         button.disabled = false;
-                        button.innerHTML = '<i class="fas fa-trash"></i>';
+                        button.innerHTML = '<i class="fas fa-trash"></i> O\'chirish';
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     showAlert('Server bilan bog\'lanishda xatolik!', 'danger');
                     button.disabled = false;
-                    button.innerHTML = '<i class="fas fa-trash"></i>';
+                    button.innerHTML = '<i class="fas fa-trash"></i> O\'chirish';
                 });
             }
         }
@@ -721,7 +886,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('receipt-error').style.display = 'none';
                 document.getElementById('retry-print').style.display = 'none';
                 
-                fetch('/cart/confirm/', {
+                fetch('/api/cart/confirm/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -735,19 +900,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         // Chek chop etish natijasini ko'rsatish
                         document.getElementById('receipt-loading').style.display = 'none';
-                        
-                        if (data.print_status && data.print_status.success) {
-                            document.getElementById('receipt-success').style.display = 'block';
-                            displayReceiptDetails(data.receipt);
-                        } else {
-                            document.getElementById('receipt-error').style.display = 'block';
-                            document.getElementById('receipt-error-message').textContent = 
-                                data.print_status ? data.print_status.error : 'Chek chop etishda noma\'lum xatolik';
-                            document.getElementById('retry-print').style.display = 'inline-block';
-                            
-                            // Chek ma'lumotlarini saqlash qayta urinish uchun
-                            window.lastReceiptData = data.receipt;
-                        }
+                        document.getElementById('receipt-success').style.display = 'block';
+                        displayReceiptDetails(data.receipt);
                         
                         setTimeout(() => {
                             window.location.href = '/';
@@ -806,46 +960,6 @@ document.addEventListener('DOMContentLoaded', function() {
             .finally(() => {
                 button.disabled = false;
                 button.innerHTML = '<i class="fas fa-print"></i> Printerni test qilish';
-            });
-        }
-    });
-
-    // Qayta urinish tugmasi
-    document.getElementById('retry-print').addEventListener('click', function() {
-        if (window.lastReceiptData) {
-            document.getElementById('receipt-loading').style.display = 'block';
-            document.getElementById('receipt-success').style.display = 'none';
-            document.getElementById('receipt-error').style.display = 'none';
-            document.getElementById('retry-print').style.display = 'none';
-            
-            // Chekni qayta chop etishga urinish
-            fetch('/api/printer/print/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrftoken
-                },
-                body: JSON.stringify(window.lastReceiptData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('receipt-loading').style.display = 'none';
-                
-                if (data.success) {
-                    document.getElementById('receipt-success').style.display = 'block';
-                    displayReceiptDetails(window.lastReceiptData);
-                } else {
-                    document.getElementById('receipt-error').style.display = 'block';
-                    document.getElementById('receipt-error-message').textContent = data.error;
-                    document.getElementById('retry-print').style.display = 'inline-block';
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('receipt-loading').style.display = 'none';
-                document.getElementById('receipt-error').style.display = 'block';
-                document.getElementById('receipt-error-message').textContent = 'Server bilan bog\'lanishda xatolik!';
-                document.getElementById('retry-print').style.display = 'inline-block';
             });
         }
     });
